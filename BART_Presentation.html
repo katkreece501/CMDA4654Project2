@@ -5,7 +5,7 @@
     <meta charset="utf-8" />
     <meta name="author" content="Jake Fortuna, Tyler Johnson, Ryan Pini," />
     <meta name="author" content="Ashley Powell, Samika Reddy, Kathleen Reece" />
-    <meta name="date" content="2026-04-15" />
+    <meta name="date" content="2026-04-16" />
     <script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
 // be compatible with the behavior of Pandoc < 2.8).
 document.addEventListener('DOMContentLoaded', function(e) {
@@ -2868,7 +2868,7 @@ class: center, middle, inverse, title-slide
 ### Ashley Powell, Samika Reddy, Kathleen Reece
 ]
 .date[
-### 2026-04-15
+### 2026-04-16
 ]
 
 ---
@@ -2878,12 +2878,69 @@ class: center, middle, inverse, title-slide
 
 
 
+## Central Problem
+
+Suppose we want to make inference for some `\(Y\)` that depends on the unknown function
+
+$$
+Y=f(\mathbf{x})+\epsilon,\quad \epsilon\in N(0,\sigma^2)
+$$
+where `\(\mathbf{x}=(x_1,x_2,...,x_p)\)`. Suppose we also want to account for possible interaction and non-linear effects, and want to easily estimate the uncertainty associated with predictions.
+
+---
+
+## Regression Trees
+
+---
+
+## Sum Of Trees Model
+
+We can estimate our unknown function `\(f(\mathbf{x})\)` as a sum of the outputs of `\(m\)` regression trees:
+
+$$
+f(\mathbf{x}) \approx \sum_{j=1}^m g_j(\mathbf{x}) +\epsilon,\quad \epsilon\in N(0,\sigma^2) 
+$$
+where `\(g_j(\mathbf{x})\)` is the output of the `\(j\)`th regression tree. Note that depending on the exact model used, there may additional parameters for `\(g_j\)`. Sum-of-trees models can:
+
+- Better account for non-linearity (step-function like)
+- Easily incorporate additive and interaction components
+
+---
+
+## To add or possibly add
+
+To add:
+
+- Introduction to Sum of trees
+- Overview of other tree-based methods done in class or in wide use (Slide after central problem, but before introduction of BART
+- Basic overview of BART (hit the basics, expand on later slides)
+- Brief intro to Bayesian priors and posteriors
+- Easy example of priors and posteriors 
+- Typical BART priors and posteriors
+- Monte Carlo Markov Chain process, explained by going through an iteration for a single tree; include Gibbs sampler, calculating residuals, Metropolis-Hastings suggestion for tree updates
+- Output from BART: posterior distribution (how its generated), posterior intervals
+- Common Default Parameter choices, show evidence of why these are good
+- Choosing your own parameters, and how you would go about doing so
+- Limitations (high computational time, difficultly with large sets of parameters, lack of power to find which variables have predictive power)
+- Common Use cases
+- When would you want to use BART vs when you wouldn&#39;t want to use it
+
+May add:
+
+- Example of tree used for regression (diagram)
+- Modifications to BART algorithm that other researchers have done since the BART was first introduced (this would be just a list, not in depth at ALL)
+
+Assuming everything takes 1 slide, thats 13 slides to add, plus 2 may add. Again, not accounting for any of my bullets that we brake up into multiple slides or anything else that we add
+&lt;!--Extra stuff included in template, keep for now as reference--&gt;
+
+---
 ## Typography
 
 Text can be **bold**, _italic_, ~~strikethrough~~, or `inline code`.
 
 [Link to another slide](#colors).
 
+---
 ### Lorem Ipsum
 
 Dolor imperdiet nostra sapien scelerisque praesent curae metus facilisis dignissim tortor. 
@@ -3214,8 +3271,8 @@ exclude: false
 DT::datatable(head(mtcars), fillContainer = FALSE, options = list(pageLength = 4))
 ```
 
-<div class="datatables html-widget html-fill-item" id="htmlwidget-21fb687be5ebe72346cc" style="width:100%;height:auto;"></div>
-<script type="application/json" data-for="htmlwidget-21fb687be5ebe72346cc">{"x":{"filter":"none","vertical":false,"fillContainer":false,"data":[["Mazda RX4","Mazda RX4 Wag","Datsun 710","Hornet 4 Drive","Hornet Sportabout","Valiant"],[21,21,22.8,21.4,18.7,18.1],[6,6,4,6,8,6],[160,160,108,258,360,225],[110,110,93,110,175,105],[3.9,3.9,3.85,3.08,3.15,2.76],[2.62,2.875,2.32,3.215,3.44,3.46],[16.46,17.02,18.61,19.44,17.02,20.22],[0,0,1,1,0,1],[1,1,1,0,0,0],[4,4,4,3,3,3],[4,4,1,1,2,1]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th> <\/th>\n      <th>mpg<\/th>\n      <th>cyl<\/th>\n      <th>disp<\/th>\n      <th>hp<\/th>\n      <th>drat<\/th>\n      <th>wt<\/th>\n      <th>qsec<\/th>\n      <th>vs<\/th>\n      <th>am<\/th>\n      <th>gear<\/th>\n      <th>carb<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"pageLength":4,"columnDefs":[{"className":"dt-right","targets":[1,2,3,4,5,6,7,8,9,10,11]},{"orderable":false,"targets":0},{"name":" ","targets":0},{"name":"mpg","targets":1},{"name":"cyl","targets":2},{"name":"disp","targets":3},{"name":"hp","targets":4},{"name":"drat","targets":5},{"name":"wt","targets":6},{"name":"qsec","targets":7},{"name":"vs","targets":8},{"name":"am","targets":9},{"name":"gear","targets":10},{"name":"carb","targets":11}],"order":[],"autoWidth":false,"orderClasses":false,"lengthMenu":[4,10,25,50,100]}},"evals":[],"jsHooks":[]}</script>
+<div class="datatables html-widget html-fill-item" id="htmlwidget-060711b0af8890e99295" style="width:100%;height:auto;"></div>
+<script type="application/json" data-for="htmlwidget-060711b0af8890e99295">{"x":{"filter":"none","vertical":false,"fillContainer":false,"data":[["Mazda RX4","Mazda RX4 Wag","Datsun 710","Hornet 4 Drive","Hornet Sportabout","Valiant"],[21,21,22.8,21.4,18.7,18.1],[6,6,4,6,8,6],[160,160,108,258,360,225],[110,110,93,110,175,105],[3.9,3.9,3.85,3.08,3.15,2.76],[2.62,2.875,2.32,3.215,3.44,3.46],[16.46,17.02,18.61,19.44,17.02,20.22],[0,0,1,1,0,1],[1,1,1,0,0,0],[4,4,4,3,3,3],[4,4,1,1,2,1]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th> <\/th>\n      <th>mpg<\/th>\n      <th>cyl<\/th>\n      <th>disp<\/th>\n      <th>hp<\/th>\n      <th>drat<\/th>\n      <th>wt<\/th>\n      <th>qsec<\/th>\n      <th>vs<\/th>\n      <th>am<\/th>\n      <th>gear<\/th>\n      <th>carb<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"pageLength":4,"columnDefs":[{"className":"dt-right","targets":[1,2,3,4,5,6,7,8,9,10,11]},{"orderable":false,"targets":0},{"name":" ","targets":0},{"name":"mpg","targets":1},{"name":"cyl","targets":2},{"name":"disp","targets":3},{"name":"hp","targets":4},{"name":"drat","targets":5},{"name":"wt","targets":6},{"name":"qsec","targets":7},{"name":"vs","targets":8},{"name":"am","targets":9},{"name":"gear","targets":10},{"name":"carb","targets":11}],"order":[],"autoWidth":false,"orderClasses":false,"lengthMenu":[4,10,25,50,100]}},"evals":[],"jsHooks":[]}</script>
 
 ---
 layout: true
