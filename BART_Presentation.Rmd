@@ -103,6 +103,38 @@ Assuming everything takes 1 slide, thats 13 slides to add, plus 2 may add. Again
 <!--Extra stuff included in template, keep for now as reference-->
 
 ---
+## Baby Example: Bart for Classification
+
+(Will add once we have decided on a dataset (or two) and have gone through the 
+problem in a separate markdown file)
+
+#### Dataset: 
+
+```{r eval=FALSE}
+# load the dataset here
+```
+
+#### Will do: 
+- use Bart for classification
+- compare to another method (hopefully bart does better)
+- explain steps fully (and show how to avoid overfitting?)
+
+---
+## Baby Example: BART for Regression
+
+#### Dataset:
+```{r eval=FALSE}
+# load the dataset here
+```
+
+- will likely follow similar format to the classification example
+- making sure to follow guidlines in rubric and cover all our bases
+
+---
+
+
+
+---
 ## Typography
 
 Text can be **bold**, _italic_, ~~strikethrough~~, or `inline code`.
