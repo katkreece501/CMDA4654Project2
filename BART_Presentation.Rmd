@@ -2,7 +2,7 @@
 title: "Bayesian Additive Regression Trees (BART)"
 author:
   - "Jake Fortuna, Tyler Johnson, Ryan Pini,"
-  - "Ashley Powell, Samika Reddy, Kathleen Reece"
+  - "Ashley Powell, Samika Reddy, and Kathleen Reece"
 date: '`r Sys.Date()`'
 output:
   xaringan::moon_reader:
@@ -41,10 +41,10 @@ style_duo_accent(
 
 ## Central Problem
 
-Suppose we want to make inference for some $Y$ that depends on the unknown function
+Suppose we want to make inference for some continuous $Y$ that depends on the unknown function
 
 $$
-Y=f(\mathbf{x})+\epsilon,\quad \epsilon\in N(0,\sigma^2)
+Y=f(\mathbf{x})+\epsilon,\quad \epsilon\sim N(0,\sigma^2)
 $$
 where $\mathbf{x}=(x_1,x_2,...,x_p)$. Suppose we also want to account for possible interaction and non-linear effects, and want to easily estimate the uncertainty associated with predictions.
 
@@ -57,6 +57,8 @@ Traditional Regression:
 
 ## Regression Trees
 
+- Add example of a very simple regression tree and graph associated step function
+
 ---
 
 ## Sum Of Trees Model
@@ -64,15 +66,57 @@ Traditional Regression:
 We can estimate our unknown function $f(\mathbf{x})$ as a sum of the outputs of $m$ regression trees:
 
 $$
-f(\mathbf{x}) \approx \sum_{j=1}^m g_j(\mathbf{x}) +\epsilon,\quad \epsilon\in N(0,\sigma^2) 
+Y \approx \sum_{j=1}^m g_j(\mathbf{x}) +\epsilon,\quad \epsilon\sim N(0,\sigma^2) 
 $$
 where $g_j(\mathbf{x})$ is the output of the $j$th regression tree. Note that depending on the exact model used, there may additional parameters for $g_j$. Sum-of-trees models can:
 
 - Better account for non-linearity (step-function like)
 - Easily incorporate additive components
-- Easily incorporate interaction effects between terms
+- One tree can branch based on different parameter values, incorporating interaction effects
 
-compared to more traditional regression or regression-like model.
+compared to more traditional regression or regression-like models.
+
+---
+
+## Other Sum-Of-Trees Models
+
+- Create based on whatever other tree stuff we do in class
+
+---
+
+## Overview of BART
+
+The BART model, as first defined by Hugh A. Chipman, Edward I. George, and Robert E. McCulloch, is:
+
+$$
+Y = f(\mathbf{x})+\epsilon=\sum_{j=1}^mg(\mathbf{x}; T_j,M_j)+\epsilon,\quad \epsilon\sim N(0,\sigma^2) 
+$$
+
+where $T_j$ is the $j$th binary regression tree, consisting of interior nodes holding decision rules and $b$ terminal nodes, and $M_j={\mu_{j1}, \mu_{j2},\dots,\mu_{jb}}$ is the set of parameter values associated values associated with each terminal node of $T_j$. For each $T_j$, each $\mathbf{x}$ is associated with a single terminal node value $\mu_{ji}$. Note $E(Y|\mathbf{x})$ is the sum of these chosen $\mu_{ji}$.
+
+Trees can depend on one or many components of $\mathbf{x}$, modeling both main and interaction effects, and be of varying depths (modeling different effect strengths).
+
+Prior distributions are placed on $T_j$, $\mu_{ji}|T_j$, and $\sigma$. A back-fitting Monte Carlo Markov Chain (MCMC) algorithm is used to fit BART, and the final output $f(\mathbf{x})$ is an average of $\mathbf{x}$ evaluated on the MCMC sample over the posterior distribution.
+
+---
+
+## Priors and Posteriors
+
+The **Prior** is probability distribution assigned to a parameter before any data is observed, while the **Posterior** is the _updated_ probability distribution of a parameter given the observed values of the data. As a general example, let unknown parameter $A$ have the prior $f_A(\alpha)$. Conditional on the fact $A=\alpha$, the data $B$ has the likelihood $f_{B\mid A}(\beta\mid\alpha)$. 
+
+The posterior distribution $f_{A\mid B}(\alpha\mid\beta)$ is given as
+
+<div>
+$$
+f_{A\mid B}(\alpha\mid\beta)=\frac{f_{B\mid A}(\beta\mid\alpha)f_A(\alpha)}{f_B(\beta)}
+$$
+</div>
+
+or $f_{A\mid B}(\alpha\mid\beta)\propto f_{B\mid A}(\beta\mid \alpha)f_A(\alpha)$. In words, $\text{Posterior}\propto \text{Likelihood}\times\text{Prior}$. Note that changing the prior will change the posterior distribution, but for good data this change is less noticeable.
+
+---
+
+## Concrete Prior and Posterior Example
 
 ---
 
@@ -80,10 +124,6 @@ compared to more traditional regression or regression-like model.
 
 To add:
 
-- Introduction to Sum of trees
-- Overview of other tree-based methods done in class or in wide use (Slide after central problem, but before introduction of BART
-- Basic overview of BART (hit the basics, expand on later slides)
-- Brief intro to Bayesian priors and posteriors
 - Easy example of priors and posteriors 
 - Typical BART priors and posteriors
 - Monte Carlo Markov Chain process, explained by going through an iteration for a single tree; include Gibbs sampler, calculating residuals, Metropolis-Hastings suggestion for tree updates
