@@ -69,6 +69,7 @@ where $g_j(\mathbf{x})$ is the output of the $j$th regression tree. Note that de
 - Better account for non-linearity (step-function like)
 - Easily incorporate additive components
 - One tree can branch based on different parameter values, incorporating interaction effects
+- Trees can be kept small (weak learners)
 
 compared to more traditional regression or regression-like models.
 
@@ -102,7 +103,9 @@ f_{A\mid B}(\alpha\mid\beta)=\frac{f_{B\mid A}(\beta\mid\alpha)f_A(\alpha)}{f_B(
 $$
 </div>
 
-or $f_{A\mid B}(\alpha\mid\beta)\propto f_{B\mid A}(\beta\mid \alpha)f_A(\alpha)$. In words, $\text{Posterior}\propto \text{Likelihood}\times\text{Prior}$. Note that changing the prior will change the posterior distribution, but for good data this change is less noticeable.
+or $f_{A\mid B}(\alpha\mid\beta)\propto f_{B\mid A}(\beta\mid \alpha)f_A(\alpha)$. 
+
+In words, $\text{Posterior}\propto \text{Likelihood}\times\text{Prior}$.
 
 ---
 
@@ -139,7 +142,59 @@ ggplot(data.frame(x = c(0, 1)), aes(x = x)) +
 
 ---
 
-## BART Priors
+## Further Comments on Priors and Posteriors
+
+- As more data is observed, the posterior distribution moves further from the prior
+- Changing the prior will change the posterior, but for good data, this change is less noticeable
+- The range of parameter in the prior distribution is the maximum range of the posterior distribution
+- Multiplying the posterior by the proportionality constant (everything that doesn't depend on the parameter) allows it to integrate to 1.
+- A prior is conjugate for the likelihood if the posterior has the same distribution type of the prior. This typically makes calculations easier
+- The posterior gives a plausible distribution of a parameter, not exact values. The mean and mode are frequently used as estimates of the true value, depending on the situation
+
+We can calculate a $1-\alpha$ posterior for our posterior distribution $f_{P|H}(p\mid h)$ as the interval $[p_1, p_2]$ for which
+
+$$
+P(p<p_1)=\int_{p<p_1}f_{P|H}(p\mid h)\ dp=\frac{\alpha}{2}\text{ and }P(p>p_2)=\int_{p>p_2}f_{P|H}(p\mid h)\ dp=\frac{\alpha}{2}
+$$
+
+are true, with a $1-\alpha$ probability that $p$ is located in this interval, conditional on the observed data.
+
+---
+
+## Prior on the Trees
+
+The prior on $T_j$ can be specified by 3 parts:
+
+1. The probability that a node at depth $d=0,1,\dots$ is nontermial: $\alpha(1+d)^{-\beta}$ for $\alpha\in(0,1)$ and $\beta \in [0, 1)$
+2. The choice of splitting variable: uniform distribution over all possible predictors
+3. The choice of splitting value: uniform distribution over all values of the chosen predictor in that node
+
+Larger values of $\alpha$ increase the likelihood of a split, and larger values of $\beta$ decrease the number of terminal nodes. For (2), although Chipman et al. proposed the uniform distribution be used, other literature has suggested that this not ideal for variable selection.
+
+(1) is used to control the number of splits in the tree, with an initial split probability of $\alpha$ at $d = 0$, with larger depths having a lower probability of splitting. (2) and (3) control the different combination of available splits, with larger depths having a lower possible pool of combinations.
+
+---
+
+## Prior on the Parameter Values
+
+The prior on $\mu_{ji}|T_j$ is given by the normal distribution $N(\mu_\mu, \sigma^2_\mu)$.
+
+Note that as $E(Y|\mathbf{x})=\sum_{j=1}^m\mu_{ji}|T_j$, $E(Y|\mathbf{x})\sim N(m\mu_\mu, m\sigma^2_\mu)$. $E(Y|\mathbf{x})$ can be kept in the range $(y_{\min}, y_\max)$ for $k$ standard deviations by choosing $\mu_\mu$ and $\sigma^2_\mu$ such that $m\mu_\mu \pm m\sigma^2_\mu = y_{\min}, y_\max$. Assuming our we trust our data, we want predictions to made in a reasonably similar interval to our data!
+
+If $Y$ is scaled such that $y_\min=-0.5$ and $y_\max=0.5$, then our prior becomes
+
+$$
+\mu_{ji}|T_j \sim N\left(0,\left(\frac{0.5}{k\sqrt{m}}\right)^2\right)
+$$
+
+For higher values of $m$ (more trees), the prior on individual parameters tightens, ensuring predictions don't scale with $m$. Note that if you choose to scale $Y$, no scaling of any predictors are needed.
+
+---
+
+# Prior on the Error Variance
+
+
+
 
 ---
 
@@ -195,8 +250,6 @@ problem in a separate markdown file)
 ---
 
 
-
----
 ## Typography
 
 Text can be **bold**, _italic_, ~~strikethrough~~, or `inline code`.

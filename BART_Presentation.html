@@ -2906,6 +2906,7 @@ where `\(g_j(\mathbf{x})\)` is the output of the `\(j\)`th regression tree. Note
 - Better account for non-linearity (step-function like)
 - Easily incorporate additive components
 - One tree can branch based on different parameter values, incorporating interaction effects
+- Trees can be kept small (weak learners)
 
 compared to more traditional regression or regression-like models.
 
@@ -2939,7 +2940,9 @@ f_{A\mid B}(\alpha\mid\beta)=\frac{f_{B\mid A}(\beta\mid\alpha)f_A(\alpha)}{f_B(
 $$
 &lt;/div&gt;
 
-or `\(f_{A\mid B}(\alpha\mid\beta)\propto f_{B\mid A}(\beta\mid \alpha)f_A(\alpha)\)`. In words, `\(\text{Posterior}\propto \text{Likelihood}\times\text{Prior}\)`. Note that changing the prior will change the posterior distribution, but for good data this change is less noticeable.
+or `\(f_{A\mid B}(\alpha\mid\beta)\propto f_{B\mid A}(\beta\mid \alpha)f_A(\alpha)\)`. 
+
+In words, `\(\text{Posterior}\propto \text{Likelihood}\times\text{Prior}\)`.
 
 ---
 
@@ -2979,7 +2982,27 @@ ggplot(data.frame(x = c(0, 1)), aes(x = x)) +
 
 ---
 
-## BART Priors
+## Further Comments on Priors and Posteriors
+
+- As more data is observed, the posterior distribution moves further from the prior
+- The posterior gives a plausible distribution of a parameter, not exact values
+- Changing the prior will change the posterior, but for good data, this change is less noticeable
+- The range of parameter in the prior distribution is the maximum range of the posterior distribution
+- Multiplying the posterior by the proportionality constant (everything that doesn&#39;t depend on the parameter) allows it to integrate to 1. Depending on the choice of prior and likelihood, this can be difficult to calculate
+
+---
+
+## Prior on the Trees
+
+The prior on `\(T_j\)` can be specified by 3 parts:
+
+1. The probability that a node at depth `\(d=0,1,\dots\)` is nontermial: `\(\alpha(1+d)^{-\beta}\)` for `\(\alpha\in(0,1)\)` and `\(\beta \in [0, 1)\)`
+2. The choice of splitting variable: uniform distribution over all possible predictors
+3. The choice of splitting value: uniform distribution over all values of the chosen predictor in that node
+
+Larger values of `\(\alpha\)` increase the likelihood of a split, and larger values of `\(\beta\)` decrease the number of terminal nodes. For (2), although Chipman et al. proposed the uniform distribution be used, other literature has suggested that this not ideal for variable selection.
+
+(1) is used to control the number of splits in the tree, with larger depths having a lower probability of splitting, while (2) and (3) control the different combination of available splits, with larger depths having a lower possible pool of combinations.
 
 ---
 
@@ -3037,8 +3060,6 @@ problem in a separate markdown file)
 ---
 
 
-
----
 ## Typography
 
 Text can be **bold**, _italic_, ~~strikethrough~~, or `inline code`.
@@ -3376,8 +3397,8 @@ exclude: false
 DT::datatable(head(mtcars), fillContainer = FALSE, options = list(pageLength = 4))
 ```
 
-<div class="datatables html-widget html-fill-item" id="htmlwidget-9f82e7e91ca09011efc1" style="width:100%;height:auto;"></div>
-<script type="application/json" data-for="htmlwidget-9f82e7e91ca09011efc1">{"x":{"filter":"none","vertical":false,"fillContainer":false,"data":[["Mazda RX4","Mazda RX4 Wag","Datsun 710","Hornet 4 Drive","Hornet Sportabout","Valiant"],[21,21,22.8,21.4,18.7,18.1],[6,6,4,6,8,6],[160,160,108,258,360,225],[110,110,93,110,175,105],[3.9,3.9,3.85,3.08,3.15,2.76],[2.62,2.875,2.32,3.215,3.44,3.46],[16.46,17.02,18.61,19.44,17.02,20.22],[0,0,1,1,0,1],[1,1,1,0,0,0],[4,4,4,3,3,3],[4,4,1,1,2,1]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th> <\/th>\n      <th>mpg<\/th>\n      <th>cyl<\/th>\n      <th>disp<\/th>\n      <th>hp<\/th>\n      <th>drat<\/th>\n      <th>wt<\/th>\n      <th>qsec<\/th>\n      <th>vs<\/th>\n      <th>am<\/th>\n      <th>gear<\/th>\n      <th>carb<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"pageLength":4,"columnDefs":[{"className":"dt-right","targets":[1,2,3,4,5,6,7,8,9,10,11]},{"orderable":false,"targets":0},{"name":" ","targets":0},{"name":"mpg","targets":1},{"name":"cyl","targets":2},{"name":"disp","targets":3},{"name":"hp","targets":4},{"name":"drat","targets":5},{"name":"wt","targets":6},{"name":"qsec","targets":7},{"name":"vs","targets":8},{"name":"am","targets":9},{"name":"gear","targets":10},{"name":"carb","targets":11}],"order":[],"autoWidth":false,"orderClasses":false,"lengthMenu":[4,10,25,50,100]}},"evals":[],"jsHooks":[]}</script>
+<div class="datatables html-widget html-fill-item" id="htmlwidget-22b0ee3b9e4dff746cf0" style="width:100%;height:auto;"></div>
+<script type="application/json" data-for="htmlwidget-22b0ee3b9e4dff746cf0">{"x":{"filter":"none","vertical":false,"fillContainer":false,"data":[["Mazda RX4","Mazda RX4 Wag","Datsun 710","Hornet 4 Drive","Hornet Sportabout","Valiant"],[21,21,22.8,21.4,18.7,18.1],[6,6,4,6,8,6],[160,160,108,258,360,225],[110,110,93,110,175,105],[3.9,3.9,3.85,3.08,3.15,2.76],[2.62,2.875,2.32,3.215,3.44,3.46],[16.46,17.02,18.61,19.44,17.02,20.22],[0,0,1,1,0,1],[1,1,1,0,0,0],[4,4,4,3,3,3],[4,4,1,1,2,1]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th> <\/th>\n      <th>mpg<\/th>\n      <th>cyl<\/th>\n      <th>disp<\/th>\n      <th>hp<\/th>\n      <th>drat<\/th>\n      <th>wt<\/th>\n      <th>qsec<\/th>\n      <th>vs<\/th>\n      <th>am<\/th>\n      <th>gear<\/th>\n      <th>carb<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"pageLength":4,"columnDefs":[{"className":"dt-right","targets":[1,2,3,4,5,6,7,8,9,10,11]},{"orderable":false,"targets":0},{"name":" ","targets":0},{"name":"mpg","targets":1},{"name":"cyl","targets":2},{"name":"disp","targets":3},{"name":"hp","targets":4},{"name":"drat","targets":5},{"name":"wt","targets":6},{"name":"qsec","targets":7},{"name":"vs","targets":8},{"name":"am","targets":9},{"name":"gear","targets":10},{"name":"carb","targets":11}],"order":[],"autoWidth":false,"orderClasses":false,"lengthMenu":[4,10,25,50,100]}},"evals":[],"jsHooks":[]}</script>
 
 ---
 layout: true
