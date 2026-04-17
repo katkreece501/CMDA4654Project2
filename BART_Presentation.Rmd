@@ -19,7 +19,7 @@ output:
 ```{r setup, include=FALSE}
 options(htmltools.dir.version = FALSE)
 knitr::opts_chunk$set(
-  fig.width=9, fig.height=3.5, fig.retina=3,
+  fig.width=8, fig.height=2.5, fig.retina=3,
   out.width = "100%",
   cache = FALSE,
   echo = TRUE,
@@ -37,6 +37,8 @@ style_duo_accent(
   secondary_color = "#FF961C",
   inverse_header_color = "#FFFFFF"
 )
+library(ggplot2)
+theme_set(theme_bw())
 ```
 
 ## Central Problem
@@ -55,12 +57,6 @@ Traditional Regression:
 
 ---
 
-## Regression Trees
-
-- Add example of a very simple regression tree and graph associated step function
-
----
-
 ## Sum Of Trees Model
 
 We can estimate our unknown function $f(\mathbf{x})$ as a sum of the outputs of $m$ regression trees:
@@ -75,12 +71,6 @@ where $g_j(\mathbf{x})$ is the output of the $j$th regression tree. Note that de
 - One tree can branch based on different parameter values, incorporating interaction effects
 
 compared to more traditional regression or regression-like models.
-
----
-
-## Other Sum-Of-Trees Models
-
-- Create based on whatever other tree stuff we do in class
 
 ---
 
@@ -118,13 +108,45 @@ or $f_{A\mid B}(\alpha\mid\beta)\propto f_{B\mid A}(\beta\mid \alpha)f_A(\alpha)
 
 ## Concrete Prior and Posterior Example
 
+Suppose you wish to investigate the fairness of a coin. Let $P$ be the probability that the coin lands on heads, and $H$ be the number of heads you get when flipping the coin $n$ times. Note that $H$ has a binomial distribution, $H\sim B(n, p)$. Since you know $p$ is between 0 and 1. Thus, a reasonable prior in this scenario the uniform distribution from 0 to 1, $P\sim U(0, 1)$. 
+
+In this scenario, we have the prior $f_P(p)=1$ and the likelihood $f_{H\mid P}(h\mid p)= \binom{n}{h}p^h (1-p)^{n-h}$. We can calculate $f_H(h)=\frac{1}{n+1}$ by integrating the likelihood by the prior with respect to $p$. 
+
+We can calculate the posterior distribution $f(p\mid h)$:
+
+$$
+\begin{split}
+f_{P|H}(p\mid h)&=\frac{f_{H\mid P}(h\mid p)f_P(p)}{f_H(h)}\\
+&=(n+1)\times\binom{n}{h}p^h (1-p)^{n-h}\times1\\
+f_{P|H}(p\mid h)&\propto p^h (1-p)^{n-h}
+\end{split}
+$$
+Note that this is the beta distribution $H\sim \text{Beta}(h+1, n-h+1)$.
+
+(Example adapted from the slides of Associate Professor Hui Wang at Brown University)
+---
+
+## Concrete Prior and Posterior Example, Continued
+
+```{r}
+ggplot(data.frame(x = c(0, 1)), aes(x = x)) +
+  geom_function(fun = dbeta, args = list(shape1 = 26, shape2 = 76), aes(colour = "h = 25, n = 100")) +
+  geom_function(fun = dbeta, args = list(shape1 = 101, shape2 = 101), aes(colour = "h = 100, n = 200")) +
+  geom_function(fun = dbeta, args = list(shape1 = 301, shape2 = 101), aes(colour = "h = 300, n = 400")) +
+  scale_colour_manual("Parameters", values = c("red", "blue", "green")) +
+  labs(x = "P", y = "Density", title = "Posterior Distribution for different values of h and n")
+```
+
+---
+
+## BART Priors
+
 ---
 
 ## To add or possibly add
 
 To add:
 
-- Easy example of priors and posteriors 
 - Typical BART priors and posteriors
 - Monte Carlo Markov Chain process, explained by going through an iteration for a single tree; include Gibbs sampler, calculating residuals, Metropolis-Hastings suggestion for tree updates
 - Output from BART: posterior distribution (how its generated), posterior intervals
