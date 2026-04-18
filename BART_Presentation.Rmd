@@ -144,18 +144,29 @@ ggplot(data.frame(x = c(0, 1)), aes(x = x)) +
 
 ## Further Comments on Priors and Posteriors
 
-- As more data is observed, the posterior distribution moves further from the prior
 - Changing the prior will change the posterior, but for good data, this change is less noticeable
 - The range of parameter in the prior distribution is the maximum range of the posterior distribution
 - Multiplying the posterior by the proportionality constant (everything that doesn't depend on the parameter) allows it to integrate to 1.
-- A prior is conjugate for the likelihood if the posterior has the same distribution type of the prior. This typically makes calculations easier
 - The posterior gives a plausible distribution of a parameter, not exact values. The mean and mode are frequently used as estimates of the true value, depending on the situation
 
-We can calculate a $1-\alpha$ posterior for our posterior distribution $f_{P|H}(p\mid h)$ as the interval $[p_1, p_2]$ for which
 
-$$
-P(p<p_1)=\int_{p<p_1}f_{P|H}(p\mid h)\ dp=\frac{\alpha}{2}\text{ and }P(p>p_2)=\int_{p>p_2}f_{P|H}(p\mid h)\ dp=\frac{\alpha}{2}
-$$
+We can calculate a $1-\alpha$ posterior interval, $[p_1, p_2]$ for the posterior distribution from our example.
+
+The boundaries of the interval are such that
+
+<div>
+\[
+P(p < p_1)=\int_{-\infty}^{p_1} f_{P\mid H}(p\mid h)\, dp=\frac{\alpha}{2}
+\]
+</div>
+
+and
+
+<div>
+\[
+P(p > p_2)=\int_{p_2}^{\infty} f_{P\mid H}(p\mid h)\, dp=\frac{\alpha}{2}
+\]
+</div>
 
 are true, with a $1-\alpha$ probability that $p$ is located in this interval, conditional on the observed data.
 
@@ -179,7 +190,7 @@ Larger values of $\alpha$ increase the likelihood of a split, and larger values 
 
 The prior on $\mu_{ji}|T_j$ is given by the normal distribution $N(\mu_\mu, \sigma^2_\mu)$.
 
-Note that as $E(Y|\mathbf{x})=\sum_{j=1}^m\mu_{ji}|T_j$, $E(Y|\mathbf{x})\sim N(m\mu_\mu, m\sigma^2_\mu)$. $E(Y|\mathbf{x})$ can be kept in the range $(y_{\min}, y_\max)$ for $k$ standard deviations by choosing $\mu_\mu$ and $\sigma^2_\mu$ such that $m\mu_\mu \pm m\sigma^2_\mu = y_{\min}, y_\max$. Assuming our we trust our data, we want predictions to made in a reasonably similar interval to our data!
+Note that as $E(Y|\mathbf{x})=\sum_{j=1}^m\mu_{ji}|T_j$, $E(Y|\mathbf{x})\sim N(m\mu_\mu, m\sigma^2_\mu)$. $E(Y|\mathbf{x})$ can be kept in the range $(y_{\min}, y_\max)$ for $k$ standard deviations by choosing $\mu_\mu$ and $\sigma^2_\mu$ such that $m\mu_\mu \pm m\sigma^2_\mu = y_{\min}, y_\max$. While this isn't the most Bayesian approach, it ensures predictions are made that reasonably close to the training data.
 
 If $Y$ is scaled such that $y_\min=-0.5$ and $y_\max=0.5$, then our prior becomes
 
@@ -187,14 +198,32 @@ $$
 \mu_{ji}|T_j \sim N\left(0,\left(\frac{0.5}{k\sqrt{m}}\right)^2\right)
 $$
 
-For higher values of $m$ (more trees), the prior on individual parameters tightens, ensuring predictions don't scale with $m$. Note that if you choose to scale $Y$, no scaling of any predictors are needed.
+For higher values of $m$ (more trees), the prior on individual parameters tightens, ensuring predictions don't scale with $m$ (this same affect can also be achieved by increasing $k$). Note that if you choose to scale $Y$, no scaling of any predictors are needed.
 
 ---
 
-# Prior on the Error Variance
+## Prior on the Error Variance
+
+The prior on $\sigma^2$ is given by the inverse chi-squared distribution $\frac{\lambda \nu}{\chi^2}$, where $\nu$ is the degrees of freedom for the prior and $\lambda$ based a "rough data-based overestimate" $\hat{\sigma}$ of $\sigma$, either the sample standard deviation or the square root of the MSE from an OLS fit (Note the inherent assumption that BART will model the data better than OLS). 
+
+Chimpan et al. recommend picking $\nu$ between 3 and 10, inclusive, and picking $\lambda$ such that $\hat{\sigma}$ is located at the $q$th quantile of the prior for some selected $q$; they recommend 0.75 for a conservative estimate, 0.99 for an aggressive estimate, and 0.9 as the default.
+
+<center><img src="./error_var_prior.png" alt="Variance Priors" height="225px" /></center>
+
+.footnote[From BART: Bayesian additive regression trees, Chipman et al.]
 
 
+---
 
+## Choosing Hyperparameters
+
+There are two recommended methods for choosing the hyperparameters $\alpha$, $\beta$ ($T_j$ prior), $k$ ($\mu_{ji}$ prior), $\nu$, $q$ ($\sigma^2$ prior), and $m$:
+
+1. Cross validation from reasonable values
+
+2. Use recommended defaults of $\alpha = 0.95$, $\beta=2$, $k=2$, $\nu=3$, $q=0.90$, and $m = 200$
+
+We'll show later that using the recommended default hyperparameters achieves similar results as for cross-validation. 
 
 ---
 
@@ -202,7 +231,6 @@ For higher values of $m$ (more trees), the prior on individual parameters tighte
 
 To add:
 
-- Typical BART priors and posteriors
 - Monte Carlo Markov Chain process, explained by going through an iteration for a single tree; include Gibbs sampler, calculating residuals, Metropolis-Hastings suggestion for tree updates
 - Output from BART: posterior distribution (how its generated), posterior intervals
 - Common Default Parameter choices, show evidence of why these are good
