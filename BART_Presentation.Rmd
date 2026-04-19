@@ -83,7 +83,7 @@ $$
 Y = f(\mathbf{x})+\epsilon=\sum_{j=1}^mg(\mathbf{x}; T_j,M_j)+\epsilon,\quad \epsilon\sim N(0,\sigma^2) 
 $$
 
-where $T_j$ is the $j$th binary regression tree, consisting of interior nodes holding decision rules and $b$ terminal nodes, and $M_j={\mu_{j1}, \mu_{j2},\dots,\mu_{jb}}$ is the set of parameter values associated values associated with each terminal node of $T_j$. For each $T_j$, each $\mathbf{x}$ is associated with a single terminal node value $\mu_{ji}$. Note $E(Y|\mathbf{x})$ is the sum of these chosen $\mu_{ji}$.
+where $T_j$ is the $j$th binary regression tree, consisting of interior nodes holding decision rules and $b$ terminal nodes, and $M_j=\{\mu_{j1}, \mu_{j2},\dots,\mu_{jb}\}$ is the set of parameter values associated values associated with each terminal node of $T_j$. For each $T_j$, each $\mathbf{x}$ is associated with a single terminal node value $\mu_{ji}$. Note $E(Y|\mathbf{x})$ is the sum of these chosen $\mu_{ji}$.
 
 Trees can depend on one or many components of $\mathbf{x}$, modeling both main and interaction effects, and be of varying depths (modeling different effect strengths).
 
@@ -211,6 +211,39 @@ Chimpan et al. recommend picking $\nu$ between 3 and 10, inclusive, and picking 
 <center><img src="./error_var_prior.png" alt="Variance Priors" height="225px" /></center>
 
 .footnote[From BART: Bayesian additive regression trees, Chipman et al.]
+
+
+---
+
+## Building the True Posterior
+
+The selection of priors is such that each tree is independent of each other, the terminal node parameters are independent for each tree, and $\sigma$ is independent of the trees. Thus, we can write the overall regularization prior for the BART model as
+
+<div>
+\[
+p((T_1,M_1),\dots,(T_m,M_m),\sigma)=\left[\prod_{j=1}^m\left[\prod_{i=1}^{b_j}p(\mu_{ji}|T_j)\right]p(T_j)\right]p(\sigma)
+\]
+</div>
+
+Thus, using the formula for the posterior distribution we have:
+
+$$
+p((T_1,M_1),\dots,(T_m,M_m),\sigma\mid Y)\propto p(Y\mid(T_1,M_1),\dots,(T_m,M_m),\sigma)\times p((T_1,M_1),\dots,(T_m,M_m),\sigma)
+$$
+
+In the BART framework, we never explicitly calculate the true posterior; the distribution (all possible combinations of $m$ trees and $\sigma$ values) is too large. Instead, we search through many possible combinations of trees, and the collection of sets of $m$ trees visited forms our posterior. 
+
+---
+
+## Background on Sampling Process
+
+---
+
+## Sample Iteration
+
+---
+
+## Building Posterior We actually use
 
 
 ---
