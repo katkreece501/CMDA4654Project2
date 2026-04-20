@@ -436,6 +436,16 @@ knitr::kable(comparison_df, format = "html", caption = "Performance Comparison: 
 ---
 
 
+
+
+
+
+
+
+
+
+---
+exclude: true
 ## Typography
 
 Text can be **bold**, _italic_, ~~strikethrough~~, or `inline code`.
@@ -443,6 +453,7 @@ Text can be **bold**, _italic_, ~~strikethrough~~, or `inline code`.
 [Link to another slide](#colors).
 
 ---
+exclude: true
 ### Lorem Ipsum
 
 Dolor imperdiet nostra sapien scelerisque praesent curae metus facilisis dignissim tortor. 
@@ -456,6 +467,7 @@ Himenaeos suspendisse leo varius mus risus sagittis aliquet venenatis duis nec.
 - Ipsum dis nec porttitor urna sed
 
 ---
+exclude: true
 name: colors
 
 ## Colors
@@ -486,7 +498,7 @@ venenatis urna cursus eget nunc scelerisque viverra.
 ]
 
 ---
-
+exclude: true
 # Big Topic or Inverse Slides `#`
 
 ## Slide Headings `##`
@@ -502,7 +514,7 @@ This is a normal paragraph text. Only use header levels 1-4.
 ###### Definitely don't use h6 `######`
 
 ---
-
+exclude: true
 # Left-Column Headings
 
 .left-column[
@@ -522,23 +534,25 @@ Dolor elementum fermentum pharetra lectus arcu pulvinar.
 ]
 
 ---
+exclude: true
 class: inverse center middle
 
 # Topic Changing Interstitial
 
 --
-
+exclude: true
 ```
 class: inverse center middle
 ```
 
 ---
+exclude: true
 layout: true
 
 ## Blocks
 
 ---
-
+exclude: true
 ### Blockquote
 
 > This is a blockquote following a header.
@@ -546,7 +560,7 @@ layout: true
 > When something is important enough, you do it even if the odds are not in your favor.
 
 ---
-
+exclude: true
 ### Code Blocks
 
 #### R Code
@@ -568,7 +582,7 @@ var fun = function lang(l) {
 ```
 
 ---
-
+exclude: true
 ### More R Code
 
 ```{r eval=FALSE}
@@ -576,62 +590,64 @@ dplyr::starwars %>% dplyr::slice_sample(n = 4)
 ```
 
 ---
-
+exclude: true
 ```{r message=TRUE, eval=requireNamespace("cli", quietly = TRUE)}
 cli::cli_alert_success("It worked!")
 ```
 
 --
-
+exclude: true
 ```{r message=TRUE}
 message("Just a friendly message")
 ```
 
 --
-
+exclude: true
 ```{r warning=TRUE}
 warning("This could be bad...")
 ```
 
 --
-
+exclude: true
 ```{r error=TRUE}
 stop("I hope you're sitting down for this")
 ```
 
 
 ---
+exclude: true
 layout: true
 
 ## Tables
 
 ---
-exclude: `r if (requireNamespace("tibble", quietly=TRUE)) "false" else "true"`
 
+exclude: `r if (requireNamespace("tibble", quietly=TRUE)) "false" else "true"`
+exclude: true
 ```{r eval=requireNamespace("tibble", quietly=TRUE)}
 tibble::as_tibble(mtcars)
 ```
 
 ---
-
+exclude: true
 ```{r}
 knitr::kable(head(mtcars), format = 'html')
 ```
 
 ---
-exclude: `r if (requireNamespace("DT", quietly=TRUE)) "false" else "true"`
-
-```{r eval=requireNamespace("DT", quietly=TRUE)}
+exclude: true
+```{r}
 DT::datatable(head(mtcars), fillContainer = FALSE, options = list(pageLength = 4))
 ```
 
 ---
+exclude: true
 layout: true
 
 ## Lists
 
 ---
-
+exclude: true
 .pull-left[
 #### Here is an unordered list:
 
@@ -652,7 +668,7 @@ layout: true
 ]
 
 ---
-
+exclude: true
 ### And a nested list:
 
 - level 1 item
@@ -670,7 +686,7 @@ layout: true
 - level 1 item
 
 ---
-
+exclude: true
 ### Nesting an ol in ul in an ol
 
 - level 1 item (ul)
@@ -690,19 +706,20 @@ layout: true
 - level 1 item (ul)
 
 ---
+exclude: true
 layout: true
 
 ## Plots
 
 ---
-
+exclude: true
 ```{r plot-example, eval=requireNamespace("ggplot2", quietly=TRUE)}
 library(ggplot2)
 (g <- ggplot(mpg) + aes(hwy, cty, color = class) + geom_point())
 ```
 
 ---
-
+exclude: true
 ```{r plot-example-themed, eval=requireNamespace("showtext", quietly=TRUE) && requireNamespace("ggplot2", quietly=TRUE)}
 g + xaringanthemer::theme_xaringan(text_font_size = 16, title_font_size = 18) +
   ggtitle("A Plot About Cars")
@@ -711,6 +728,7 @@ g + xaringanthemer::theme_xaringan(text_font_size = 16, title_font_size = 18) +
 .footnote[Requires `{showtext}`]
 
 ---
+exclude: true
 layout: false
 
 ## Square image
@@ -720,7 +738,7 @@ layout: false
 .footnote[GitHub Octocat]
 
 ---
-
+exclude: true
 ### Wide image
 
 ![A wide image with a diagram of branching in git.](https://docs.github.com/assets/images/help/repository/branching.png)
@@ -728,7 +746,7 @@ layout: false
 .footnote[Wide images scale to 100% slide width]
 
 ---
-
+exclude: true
 ## Two images
 
 .pull-left[
@@ -740,7 +758,7 @@ layout: false
 ]
 
 ---
-
+exclude: true
 ### Definition lists can be used with HTML syntax.
 
 <dl>
@@ -755,6 +773,7 @@ layout: false
 </dl>
 
 ---
+exclude: true
 class: center, middle
 
 # Thanks!
@@ -765,3 +784,5 @@ Slides created via the R packages:
 [gadenbuie/xaringanthemer](https://github.com/gadenbuie/xaringanthemer)
 
 The chakra comes from [remark.js](https://remarkjs.com), [**knitr**](http://yihui.name/knitr), and [R Markdown](https://rmarkdown.rstudio.com).
+
+
