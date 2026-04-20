@@ -312,6 +312,13 @@ Assuming everything takes 1 slide, thats 13 slides to add, plus 2 may add. Again
 
 ## Baby Example: BART for Classification
 
+To add to this example:
+- highlight that BART functions as a nonparametric Bayesian approach (it's a probability estimator)
+- use proper terminology (posteriors, prior, weak learners, MCMC, etc)
+- highlight the regularization prior to keep each tree as a weak learner: even without tuning, bart's default priors prevent it from overfitting the small iris dataset unlike glm which can be more sensitive to outliers
+- understand how dbarts package handles classification 
+- Quantitative results: Bart performs very well without the need for tuning (look into whether that is due to overfitting)
+
 We use the `iris` dataset to predict if a flower is a **Versicolor**. This uses the **probit link** theory discussed previously to model the probability of a binary outcome.
 
 ```{r}
@@ -462,6 +469,20 @@ knitr::kable(comparison_df, format = "html", caption = "Performance Comparison: 
 - making sure to follow guidlines in rubric and cover all our bases
 
 ---
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
