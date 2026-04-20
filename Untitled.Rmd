@@ -1,0 +1,153 @@
+---
+title: "Untitled"
+author: "Samika Reddy"
+date: "2026-04-19"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+
+
+
+
+
+
+
+
+---
+
+## Baby Example: BART vs Boosting (mtcars)
+
+We compare two tree-based methods:
+- **Boosting (GBM)**
+- **BART (Bayesian Additive Regression Trees)**
+
+Goal:
+- Predict mpg and compare training vs testing error
+
+## Step 1: Train/Test Split
+
+```{r  echo=TRUE, results='hide'}
+library(BART)
+library(gbm)
+
+set.seed(123)
+
+data(mtcars)
+
+n <- nrow(mtcars)
+train_idx <- sample(1:n, size = floor(0.7 * n))
+
+train <- mtcars[train_idx, ]
+test  <- mtcars[-train_idx, ]
+
+x_train <- as.matrix(train[, -1])
+y_train <- train$mpg
+
+x_test <- as.matrix(test[, -1])
+y_test <- test$mpg
+```
+---
+
+## Step 2: Boosting and BART Model
+```{r  echo=TRUE, results='hide'}
+n_trees <- 200
+
+boost_model <- gbm(
+  mpg ~ .,
+  data = train,
+  distribution = "gaussian",
+  n.trees = n_trees,
+  interaction.depth = 2,
+  shrinkage = 0.05,
+  bag.fraction = 1.0,
+  n.minobsinnode = 2,
+  verbose = FALSE
+)
+
+boost_train_err <- numeric(n_trees)
+boost_test_err  <- numeric(n_trees)
+
+for (i in 1:n_trees) {
+  pred_train <- predict(boost_model, train, n.trees = i)
+  pred_test  <- predict(boost_model, test,  n.trees = i)
+
+  boost_train_err[i] <- mean((y_train - pred_train)^2)
+  boost_test_err[i]  <- mean((y_test - pred_test)^2)
+}
+bart_model <- wbart(
+  x.train = x_train,
+  y.train = y_train,
+  x.test  = x_test,
+  ndpost  = 200
+)
+
+bart_train_mat <- bart_model$yhat.train
+bart_test_mat  <- bart_model$yhat.test
+
+# Ensure correct orientation
+if (ncol(bart_train_mat) == length(y_train)) {
+  bart_train_draws <- bart_train_mat
+} else {
+  bart_train_draws <- t(bart_train_mat)
+}
+
+if (ncol(bart_test_mat) == length(y_test)) {
+  bart_test_draws <- bart_test_mat
+} else {
+  bart_test_draws <- t(bart_test_mat)
+}
+
+n_draws <- nrow(bart_train_draws)
+bart_train_err <- numeric(n_draws)
+bart_test_err  <- numeric(n_draws)
+
+for (i in 1:n_draws) {
+  bart_train_err[i] <- mean((y_train - bart_train_draws[i, ])^2)
+  bart_test_err[i]  <- mean((y_test - bart_test_draws[i, ])^2)
+}
+# Smooth BART errors
+bart_train_err_smooth <- cumsum(bart_train_err) / seq_along(bart_train_err)
+bart_test_err_smooth  <- cumsum(bart_test_err) / seq_along(bart_test_err)
+```
+---
+
+## Step 3: Error Comparison
+```{r, echo=FALSE}
+
+plot(boost_train_err, type = "l",
+     col = "blue", lwd = 2,
+     ylim = range(c(boost_train_err, boost_test_err,
+                    bart_train_err_smooth, bart_test_err_smooth)),
+     xlab = "Iterations / Draws",
+     ylab = "Mean Squared Error",
+     main = "BART vs Boosting: Train and Test Error")
+
+lines(boost_test_err, col = "blue", lty = 2, lwd = 2)
+lines(bart_train_err_smooth, col = "orange", lwd = 2)
+lines(bart_test_err_smooth, col = "orange", lty = 2, lwd = 2)
+
+legend("topright",
+       legend = c("Boosting Train", "Boosting Test",
+                  "BART Train", "BART Test"),
+       col = c("blue", "blue", "orange", "orange"),
+       lty = c(1, 2, 1, 2),
+       lwd = 2)
+       
+```       
+In boosting, training error decreases rapidly toward zero, while the test error stops improving which indicates overfitting. In comparsion for BART training and test error stay closer together, and errors stabilize after early iterations, which indicates better generalization.
+
+BART is less aggressive than boosting, so:
+It does not drive training error to zero
+It maintains a competitive test error
+It generalizes better to new data
+
