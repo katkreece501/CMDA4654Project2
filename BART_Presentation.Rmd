@@ -210,7 +210,7 @@ Chimpan et al. recommend picking $\nu$ between 3 and 10, inclusive, and picking 
 
 <center><img src="./error_var_prior.png" alt="Variance Priors" height="225px" /></center>
 
-.footnote[From BART: Bayesian additive regression trees, Chipman et al.]
+.footnote[From _BART: Bayesian additive regression trees_, Chipman et al.]
 
 
 ---
@@ -247,7 +247,7 @@ Instead of drawing from the full, true posterior, BART use a _Gibbs sampler_, an
 \]
 </div>
 
-For each iteration, we first draw the set $(T_j, M_j)$ for $j=1,\dots,m$ from the distribution of all other trees and associated terminal node parameters, $(T_{(j)}, M_{(j)}$, the error $\sigma$, and the data $y$, then draw $\sigma$ from the distribution of all the trees and the data.
+For each iteration, we first draw the set $(T_j, M_j)$ for $j=1,\dots,m$ from the distribution of all other trees and associated terminal node parameters, $(T_{(j)}, M_{(j)})$, the error $\sigma$, and the data $y$, then draw $\sigma$ from the distribution of all the trees and the data.
 
 Note that $(T_j, M_j)$ only depends on the data and the other $m-1$ trees through the residual formula:
 
@@ -292,13 +292,13 @@ The probability that $T_j^*$ is accepted is given by the Metropolis–Hastings r
 \]
 </div>
 
-where $\frac{q(T_j^*,T_j)}{q(T_j,T_j^*)}$ is ratio of the probability of how $T_j$ moves to $T_j^*$ to the probability of how $T_j^*$ moves to $T_j$, $\frac{P(\mathbf{R}_j\mid \mathbf{x},T_j^*,M_j)}{P(\mathbf{R}_j\mid \mathbf{x},T_j,M_j)}$ is the likelihood ratio of $T_j^*$ to that of $T_j$, and $\frac{P(T_j^*)}{P(T_j)}$ is the probability of $T_j^*$ to that of $T_j$. The exact formulas used in these calculations vary based on the chosen move, and have been omitted for sake of space.
+where $\frac{q(T_j^*,T_j)}{q(T_j,T_j^*)}$ is ratio of the probability of how $T_j$ moves to $T_j^*$ to the probability of how $T_j^*$ moves to $T_j$, $\frac{P(\mathbf{R}_j\mid \mathbf{x},T_j^*,M_j)}{P(\mathbf{R}_j\mid \mathbf{x},T_j,M_j)}$ is the likelihood ratio of $T_j^*$ to that of $T_j$, and $\frac{P(T_j^*)}{P(T_j)}$ is the probability of $T_j^*$ to that of $T_j$. The exact formulas used in these calculations depend both the priors and the chosen move, and have been omitted for sake of space.
 
 If $T_j^*$ is accepted, than the structure of $T_j$ changes to that of $T_j^*$; otherwise, $T_j$ retains the same structure. Whatever the outcome, we then sample for $M_j$, drawing each $u_{ji}$ from the normal distribution
 
 <div>
 \[
-N\left(\left(\sigma_\mu^2\sum r_{ji}\right)/(n_i\sigma_\mu^2+\sigma^2),\,\sigma^2\sigma_\mu^2 /[n_i\sigma_\mu^2+\sigma^2]\right)
+\alpha(T_j, T_j^*)= N\left(\left(\sigma_\mu^2\sum r_{ji}\right)/(n_i\sigma_\mu^2+\sigma^2),\,\sigma^2\sigma_\mu^2 /[n_i\sigma_\mu^2+\sigma^2]\right)
 \]
 </div>
 
@@ -315,28 +315,63 @@ where $r_{ji}$ are the elements in $\mathbf{R}_j$ corresponding to $\mu_{ji}$ an
 .pull-right[
 1. Calculate $\mathbf{R}_3=\mathbf{y}-\sum_{k\ne 3}g(\mathbf{x},T_k,M_k)$
 2. Randomly select grow as the new move for $T_3^*$
-3. Calculate probability $T_3^*$ is selected
+3. Calculate probability $\alpha(T_3, T_3^*)$
 4. $T_3^*$ is selected, and replaces $T_3$
 5. $\mu_{31}^{(2)}$, $\mu_{32}^{(2)}$, and $\mu_{33}^{(2)}$ are drawn
 
 Note:
 - $\mathbf{R}_3$ is calculated with Trees 1 and 2 from iteration 2 and Tree 4 from iteration 1
 - Even if $T_3^*$ hadn't been selected, $M_3$ still would have been drawn for; the trees are always changing, even if the structure stays the same
-- An early iteration such as this one would likely be part of the "burn-in" iterations, and would not be included in the final posterior that is used in predictions
+- A rejected modification isn't a rejected _iteration_
+
+Example adapted from _Bayesian additive regression trees and the General BART model_, Tan YV, Roy J
 ]
-
-
 
 ---
 
-## Building Posterior We actually use
+## Building the Posterior (that we actually use)
 
+To build the posterior, we run the following algorithm for $B+K$ iterations, of which $B$ are burn-in iterations and are $K$ kept iterations:
+
+1. For $j=1,\dots,m$:
+  1. Compute $\mathbf{R}_j=\mathbf{y}-\sum_{k\ne j}g(\mathbf{x},T_k,M_k)$
+  2. Randomly choose a possible modification $T_j^*$
+  3. Compute $\alpha(T_j, T_j^*)$
+  4. Accept $T_j^*$ with probability $\alpha(T_j, T_j^*)$
+  5. Draw for $M_j$
+2. Draw for $\sigma$
+3. If not a burn-in iteration, store $((T_1,M_1),\dots,(T_m,M_m),\sigma)$
+
+Assuming we've chosen a suitable $K$, the sequence of iterations can be regarded as a size-$K$ sample from the true posterior. 
+
+Burn-in iterations are only used to start the MCMC process, and allow the sampler to reach the true posterior region. BART is often initialized with $m$ stumps, with $\mu_{j1}=\frac{\bar{Y}}{m}$.
+
+---
+
+To predict for a particular $\mathbf{x}^*$, we pass $\mathbf{x}^*$ into each of the $K$ iterations and take the average of all their responses:
+
+<div>
+\[
+Y^*=\frac{1}{K}\sum_{k=1}^Kf_k^*(\mathbf{x}^*)
+\]
+</div>
+
+where $f_K^*(\cdot)$ is the $K$th kept iteration, functioning as a single possible sum-of-trees model on the set of $m$ trees and associated terminal node parameters $(T_j^*,M_j^*)$
+
+<div>
+\[
+f^*(\cdot)=\sum_{j=1}^mg(\cdot,T_j^*,M_j^*)
+\]
+</div>
+
+
+The median of the responses may also be used. To measure uncertainty, $1-\alpha$ posterior intervals can be calculated over the whole distribution of $f_k^*(\mathbf{x}^*)$ values by taking the interval between the $\frac{\alpha}{2}$ and $1-\frac{\alpha}{2}$ quantiles.
 
 ---
 
 ## Choosing Hyperparameters
 
-There are two recommended methods for choosing the hyperparameters $\alpha$, $\beta$ ($T_j$ prior), $k$ ($\mu_{ji}$ prior), $\nu$, $q$ ($\sigma^2$ prior), and $m$:
+There are two recommended methods for choosing the hyperparameters $\alpha$, $\beta$ ($T_j$ prior), $k$ ($\mu_{ji}$ prior), $\nu$, $q$ ($\sigma^2$ prior), $m$, $B$, $K$, and probabilities of each possible tree modification move:
 
 1. Cross validation from reasonable values
 
@@ -350,7 +385,6 @@ We'll show later that using the recommended default hyperparameters achieves sim
 
 To add:
 
-- Monte Carlo Markov Chain process, explained by going through an iteration for a single tree; include Gibbs sampler, calculating residuals, Metropolis-Hastings suggestion for tree updates
 - Output from BART: posterior distribution (how its generated), posterior intervals
 - Common Default Parameter choices, show evidence of why these are good
 - Choosing your own parameters, and how you would go about doing so
