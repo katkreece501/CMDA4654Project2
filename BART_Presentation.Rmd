@@ -231,7 +231,7 @@ $$
 p((T_1,M_1),\dots,(T_m,M_m),\sigma\mid Y)\propto p(Y\mid(T_1,M_1),\dots,(T_m,M_m),\sigma)\times p((T_1,M_1),\dots,(T_m,M_m),\sigma)
 $$
 
-In the BART framework, we never explicitly calculate the true posterior; the distribution (all possible combinations of $m$ trees and $\sigma$ values) is too large. Instead, we search through many possible combinations of trees, and the collection of sets of $m$ trees visited forms our posterior. 
+In the BART framework, we never explicitly calculate the true posterior; the distribution (all possible combinations of $m$ trees and $\sigma$ values) is too large. Instead, we search through many possible combinations of trees, and the collection of sets of $m$ trees visited forms our posterior. This type of sampling process is known as a Markov chain Monte Carlo algorithm. 
 
 ---
 
@@ -239,21 +239,29 @@ In the BART framework, we never explicitly calculate the true posterior; the dis
 
 For each iteration, we want to first draw the set $(T_j, M_j)$ for $j=1,\dots,m$ from the distribution of all other trees and associated terminal node parameters, $(T_{(j)}, M_{(j)}$, the error $\sigma$, and the data $\mathbf{y}$, then draw $\sigma$ from the distribution of all the trees and the data.
 
-Instead of drawing from the full, true posterior, BART use a _Gibbs sampler_ to draw from the conditional distributions: 
+Instead of drawing from the full, true posterior, BART use a _Gibbs sampler_, an MCMC algorithm, to draw from the conditional distributions: 
 
-$$
+<div>
+\[
 (T_j,M_j)\mid T_{(j)}, M_{(j)},\sigma,\mathbf{y}\ \text{ and then }\ \sigma\mid T_1,\dots,T_j,M_1,\dots,M_j,\mathbf{y}
-$$
+\]
+</div>
 
 For each iteration, we first draw the set $(T_j, M_j)$ for $j=1,\dots,m$ from the distribution of all other trees and associated terminal node parameters, $(T_{(j)}, M_{(j)}$, the error $\sigma$, and the data $y$, then draw $\sigma$ from the distribution of all the trees and the data.
 
 Note that $(T_j, M_j)$ only depends on the data and the other $m-1$ trees through the residual formula:
 
-$$
+<div>
+\[
 \mathbf{R}_j=\mathbf{y}-\sum_{k\ne j}g(\mathbf{x},T_k,M_k)
-$$
+\]
+</div>
 
-So we can equivalently draw from $(T_j, M_j)\mid\mathbf{R}_j,\sigma$. Furthermore, the choice of the normal distribution for the prior on the terminal node parameters, allows $M_j$ to be integrated out with an exact solution as:
+So we can equivalently draw from $(T_j, M_j)\mid\mathbf{R}_j,\sigma$.
+
+---
+
+Furthermore, the choice of the normal distribution for the prior on the terminal node parameters, allows $M_j$ to be integrated out with an exact solution as:
 
 $$
 p(T_j\mid \mathbf{R}_j,\sigma)\propto p(T_j)\int p(\mathbf{R}_j\mid M_j,T_j,\sigma)p(M_j\mid T_j,\sigma)\,dM_j
@@ -265,9 +273,59 @@ $$
 T_j|\mathbf{R}_j,\sigma \ \text{ and then }\ M_j\mid T_j, \mathbf{R}_j, \sigma
 $$
 
+In words, we draw for a new tree, then for the set of leaf values for the tree.
+
+The draw for $T_j$ utilizes the Metropolis–Hastings algorithm, another MCMC algorithm. A modified tree, $T_j^*$ is randomly proposed that differs from $T_j$ in one of 4 ways:
+
+1. A new terminal node is grown
+1. A terminal node is pruned
+1. A nonterminal split rule is changed
+1. A parent and child are swapped
+
+---
+
+The probability that $T_j^*$ is accepted is given by the Metropolis–Hastings ratio (another type of MCMC:
+
+<div>
+\[
+\min\left\{1, \frac{q(T_j^*,T_j)}{q(T_j,T_j^*)} \frac{P(\mathbf{R}_j\mid \mathbf{x},T_j^*,M_j)}{P(\mathbf{R}_j\mid \mathbf{x},T_j,M_j)} \frac{P(T_j^*)}{P(T_j)} \right\}
+\]
+</div>
+
+where $\frac{q(T_j^*,T_j)}{q(T_j,T_j^*)}$ is ratio of the probability of how $T_j$ moves to $T_j^*$ to the probability of how $T_j^*$ moves to $T_j$, $\frac{P(\mathbf{R}_j\mid \mathbf{x},T_j^*,M_j)}{P(\mathbf{R}_j\mid \mathbf{x},T_j,M_j)}$ is the likelihood ratio of $T_j^*$ to that of $T_j$, and $\frac{P(T_j^*)}{P(T_j)}$ is the probability of $T_j^*$ to that of $T_j$. The exact formulas used in these calculations vary based on the chosen move, and have been omitted for sake of space.
+
+If $T_j^*$ is accepted, than the structure of $T_j$ changes to that of $T_j^*$; otherwise, $T_j$ retains the same structure. Whatever the outcome, we then sample for $M_j$, drawing each $u_{ji}$ from the normal distribution
+
+<div>
+\[
+N\left(\left(\sigma_\mu^2\sum r_{ji}\right)/(n_i\sigma_\mu^2+\sigma^2),\,\sigma^2\sigma_\mu^2 /[n_i\sigma_\mu^2+\sigma^2]\right)
+\]
+</div>
+
+where $r_{ji}$ are the elements in $\mathbf{R}_j$ corresponding to $\mu_{ji}$ and $n_i$ is the size of $r_{ji}$. 
+
 ---
 
 ## Sample Iteration
+
+.pull-left[
+![A Sample Interation Step](./Tree_Update_Example.jpg)
+]
+
+.pull-right[
+1. Calculate $\mathbf{R}_3=\mathbf{y}-\sum_{k\ne 3}g(\mathbf{x},T_k,M_k)$
+2. Randomly select grow as the new move for $T_3^*$
+3. Calculate probability $T_3^*$ is selected
+4. $T_3^*$ is selected, and replaces $T_3$
+5. $\mu_{31}^{(2)}$, $\mu_{32}^{(2)}$, and $\mu_{33}^{(2)}$ are drawn
+
+Note:
+- $\mathbf{R}_3$ is calculated with Trees 1 and 2 from iteration 2 and Tree 4 from iteration 1
+- Even if $T_3^*$ hadn't been selected, $M_3$ still would have been drawn for; the trees are always changing, even if the structure stays the same
+- An early iteration such as this one would likely be part of the "burn-in" iterations, and would not be included in the final posterior that is used in predictions
+]
+
+
 
 ---
 
