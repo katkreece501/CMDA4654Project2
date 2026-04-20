@@ -1,0 +1,805 @@
+---
+title: "Bayesian Additive Regression Trees (BART)"
+author:
+  - "Jake Fortuna"
+  - "Tyler Johnson"
+  - "Ryan Pini"
+  - "Ashley Powell"
+  - "Samika Reddy"
+  - "Kathleen Reece"
+date: '`r Sys.Date()`'
+output:
+  xaringan::moon_reader:
+    self_contained: true
+    css: xaringan-themer.css
+    nature:
+      slideNumberFormat: "%current%"
+      highlightStyle: github
+      highlightLines: true
+      ratio: "16:9"
+      countIncrementalSlides: true
+---
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE)
+
+knitr::opts_chunk$set(
+  fig.width = 8,
+  fig.height = 4.5,
+  fig.retina = 3,
+  out.width = "100%",
+  cache = FALSE,
+  echo = TRUE,
+  comment = NA,
+  message = FALSE,
+  warning = FALSE
+)
+
+
+```
+
+```{r xaringan-themer, include=FALSE, warning=FALSE}
+library(xaringanthemer)
+style_duo_accent(
+  primary_color = "#1381B0",
+  secondary_color = "#FF961C",
+  inverse_header_color = "#FFFFFF"
+)
+library(ggplot2)
+theme_set(theme_bw())
+
+
+
+```
+
+
+## BART FULL DEMO (ONE BLOCK, CLEAN OUTPUT)
+
+library(BART)
+library(ggplot2)
+
+cat("========== CLASSIFICATION: IRIS ==========\n\n")
+
+# Data setup
+data(iris)
+iris$IsSetosa <- ifelse(iris$Species == "setosa", 1, 0)
+
+x_class <- as.matrix(iris[,1:4])
+y_class <- iris$IsSetosa
+
+set.seed(123)
+
+# BART model
+bart_class <- pbart(x.train = x_class, y.train = y_class)
+bart_probs <- bart_class$prob.train.mean
+bart_pred <- ifelse(bart_probs > 0.5, 1, 0)
+
+# Logistic regression
+log_model <- glm(IsSetosa ~ Sepal.Length + Sepal.Width + Petal.Length + Petal.Width,
+                 data = iris, family = "binomial")
+log_probs <- predict(log_model, type = "response")
+log_pred <- ifelse(log_probs > 0.5, 1, 0)
+
+# Accuracy
+bart_acc <- mean(bart_pred == y_class)
+log_acc  <- mean(log_pred == y_class)
+
+cat("BART Accuracy:", round(bart_acc,3), "\n")
+cat("Logistic Accuracy:", round(log_acc,3), "\n\n")
+
+# Bigger comparison plot (side-by-side)
+par(mfrow = c(1,2))
+
+plot(jitter(y_class, amount = 0.08), bart_probs,
+     col = "blue", pch = 16,
+     xlab = "Actual Class",
+     ylab = "Predicted Probability",
+     main = "BART")
+abline(h = 0.5, lty = 2)
+
+plot(jitter(y_class, amount = 0.08), log_probs,
+     col = "red", pch = 16,
+     xlab = "Actual Class",
+     ylab = "Predicted Probability",
+     main = "Logistic Regression")
+abline(h = 0.5, lty = 2)
+
+par(mfrow = c(1,1))
+
+
+cat("\n========== REGRESSION: MTCARS ==========\n\n")
+
+# Data setup
+data(mtcars)
+x_reg <- as.matrix(mtcars[, -1])
+y_reg <- mtcars$mpg
+
+set.seed(123)
+
+# BART regression
+bart_reg <- wbart(x.train = x_reg, y.train = y_reg)
+bart_pred_reg <- bart_reg$yhat.train.mean
+
+# Linear regression
+lm_model <- lm(mpg ~ ., data = mtcars)
+lm_pred <- predict(lm_model)
+
+# MSE comparison
+bart_mse <- mean((y_reg - bart_pred_reg)^2)
+lm_mse   <- mean((y_reg - lm_pred)^2)
+
+cat("BART MSE:", round(bart_mse,3), "\n")
+cat("Linear Regression MSE:", round(lm_mse,3), "\n\n")
+
+# Bigger comparison plot (side-by-side)
+par(mfrow = c(1,2))
+
+plot(y_reg, bart_pred_reg,
+     col = "blue", pch = 16,
+     xlab = "Actual MPG",
+     ylab = "Predicted MPG",
+     main = "BART")
+abline(0,1, lwd = 2)
+
+plot(y_reg, lm_pred,
+     col = "red", pch = 16,
+     xlab = "Actual MPG",
+     ylab = "Predicted MPG",
+     main = "Linear Regression")
+abline(0,1, lwd = 2)
+
+par(mfrow = c(1,1))
+
+
+cat("\n +++KEY TAKEAWAY ==========\n\n")
+cat("BART captures nonlinear patterns and interactions automatically,\n")
+cat("while logistic and linear regression assume simpler relationships.\n")
+
+
+
+
+---
+
+## Baby Example: Predicting MPG with `mtcars`
+
+To make BART more concrete, consider the `mtcars` dataset.  
+Suppose we want to predict a car’s fuel efficiency, measured by **miles per gallon (`mpg`)**, using the other car characteristics such as horsepower, weight, number of cylinders, and transmission type.
+
+This is a **regression problem** because the response variable, `mpg`, is continuous.
+
+A simple baseline method for this problem is **linear regression**, which assumes the relationship between `mpg` and the predictors is approximately linear.  
+However, in practice, relationships between fuel efficiency and car features may be more complex and nonlinear.
+
+This is where **Bayesian Additive Regression Trees (BART)** can help.  
+Instead of fitting one straight-line relationship, BART fits the response as a **sum of many small trees**, allowing it to capture nonlinearities and interactions automatically.
+
+---
+
+## Step 1: Load the Data and Define the Problem
+
+```{r}
+# Load the BART package
+library(BART)
+
+# Load the built-in mtcars dataset
+data(mtcars)
+
+# Look at the first few rows
+head(mtcars)
+
+# Our goal is to predict mpg
+# So mpg will be the response variable y
+y_reg <- mtcars$mpg
+
+# Use all remaining variables as predictors
+# BART wants predictors in matrix form
+x_reg <- as.matrix(mtcars[, -1])
+
+# Check dimensions
+dim(x_reg)
+length(y_reg)
+
+
+
+
+```
+
+
+
+
+
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r}---
+
+## Baby Example: Predicting MPG with `mtcars`
+
+To make BART more concrete, consider the `mtcars` dataset.  
+Suppose we want to predict a car’s fuel efficiency, measured by miles per gallon (`mpg`), using the other car characteristics such as horsepower, weight, number of cylinders, and transmission type.
+
+This is a regression problem because the response variable, `mpg`, is continuous.
+
+A simple baseline method for this problem is **linear regression**, which assumes the relationship between `mpg` and the predictors is approximately linear.  
+However, in practice, relationships between fuel efficiency and car features may be more complex and nonlinear.
+
+This is where **Bayesian Additive Regression Trees (BART)** can help.  
+Instead of fitting one straight-line relationship, BART fits the response as a **sum of many small trees**, allowing it to capture nonlinearities and interactions automatically.
+
+---
+
+## Step 1: Load the Data and Define the Problem
+
+```{r}
+# Load the BART package
+library(BART)
+
+# Load the built-in mtcars dataset
+data(mtcars)
+
+# Look at the first few rows
+head(mtcars)
+
+# Our goal is to predict mpg
+# So mpg will be the response variable y
+y_reg <- mtcars$mpg
+
+# Use all remaining variables as predictors
+# BART wants predictors in matrix form
+x_reg <- as.matrix(mtcars[, -1])
+
+# Check dimensions
+dim(x_reg)
+length(y_reg)
+
+
+# Set a seed so the results are reproducible
+set.seed(123)
+
+# Fit the BART regression model
+# wbart() is used for continuous outcomes
+bart_reg <- wbart(x.train = x_reg, y.train = y_reg)
+
+# Print the model object
+
+# Extract the average fitted values from BART
+# These are the predicted mpg values
+bart_pred_reg <- bart_reg$yhat.train.mean
+
+# Compare actual mpg and predicted mpg
+head(data.frame(
+  Actual_MPG = y_reg,
+  BART_Predicted_MPG = bart_pred_reg
+))
+
+
+# Extract the average fitted values from BART
+# These are the predicted mpg values
+bart_pred_reg <- bart_reg$yhat.train.mean
+
+# Compare actual mpg and predicted mpg
+head(data.frame(
+  Actual_MPG = y_reg,
+  BART_Predicted_MPG = bart_pred_reg
+))
+
+
+
+# Fit a standard linear regression model
+lm_model <- lm(mpg ~ ., data = mtcars)
+
+# Get predicted values from the linear model
+lm_pred <- predict(lm_model)
+
+# Show the first few predictions
+head(data.frame(
+  Actual_MPG = y_reg,
+  LM_Predicted_MPG = lm_pred
+))
+
+
+
+# Compute mean squared error (MSE) for BART
+bart_mse <- mean((y_reg - bart_pred_reg)^2)
+
+# Compute mean squared error (MSE) for linear regression
+lm_mse <- mean((y_reg - lm_pred)^2)
+
+# Print both MSE values
+bart_mse
+lm_mse
+
+
+# Show the two models side-by-side
+par(mfrow = c(1, 2))
+
+# Plot actual vs predicted for BART
+plot(y_reg, bart_pred_reg,
+     col = "blue",
+     pch = 16,
+     xlab = "Actual MPG",
+     ylab = "Predicted MPG",
+     main = "BART Predictions")
+
+# Add the 45-degree reference line
+abline(0, 1, lwd = 2)
+
+# Plot actual vs predicted for linear regression
+plot(y_reg, lm_pred,
+     col = "red",
+     pch = 16,
+     xlab = "Actual MPG",
+     ylab = "Predicted MPG",
+     main = "Linear Regression Predictions")
+
+# Add the same 45-degree line
+abline(0, 1, lwd = 2)
+
+# Reset plotting layout
+par(mfrow = c(1, 1))
+
+
+
+# Residuals for BART
+bart_resid <- y_reg - bart_pred_reg
+
+# Residuals for linear regression
+lm_resid <- y_reg - lm_pred
+
+# Plot residuals side-by-side
+par(mfrow = c(1, 2))
+
+plot(bart_pred_reg, bart_resid,
+     col = "blue",
+     pch = 16,
+     xlab = "Predicted MPG",
+     ylab = "Residuals",
+     main = "BART Residuals")
+abline(h = 0, lwd = 2)
+
+plot(lm_pred, lm_resid,
+     col = "red",
+     pch = 16,
+     xlab = "Predicted MPG",
+     ylab = "Residuals",
+     main = "Linear Regression Residuals")
+abline(h = 0, lwd = 2)
+
+# Reset plotting layout
+par(mfrow = c(1, 1))
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+
+
+---
+
+## Baby Example: A Nonlinear Regression Example
+
+To see a more dramatic comparison, consider a simulated dataset where the true relationship is clearly nonlinear.
+
+Suppose the response is generated by:
+
+\[
+y = \sin(x) + \epsilon
+\]
+
+where \(\epsilon\) is random noise.
+
+In this setting, **linear regression** will struggle because it tries to fit a straight line, while **BART** can adapt to the curved relationship much more effectively.
+
+---
+
+## Step 1: Simulate the Data
+
+```{r}
+# Load BART
+library(BART)
+
+# Set seed for reproducibility
+set.seed(123)
+
+# Simulate predictor values
+x <- seq(0, 10, length.out = 200)
+
+# Simulate nonlinear response
+y <- sin(x) + rnorm(200, sd = 0.2)
+
+# Put into a data frame for convenience
+sim_data <- data.frame(x = x, y = y)
+
+# Look at first few rows
+head(sim_data)
+
+
+# BART needs predictor matrix form
+x_mat <- as.matrix(sim_data$x)
+
+# Fit BART regression model
+bart_model <- wbart(x.train = x_mat, y.train = sim_data$y)
+
+# Get BART fitted values
+bart_pred <- bart_model$yhat.train.mean
+
+# Fit linear regression
+lm_model <- lm(y ~ x, data = sim_data)
+
+# Get linear regression predictions
+lm_pred <- predict(lm_model)
+
+# Compute mean squared errors
+bart_mse <- mean((sim_data$y - bart_pred)^2)
+lm_mse <- mean((sim_data$y - lm_pred)^2)
+
+bart_mse
+lm_mse
+
+# Plot the observed data
+plot(sim_data$x, sim_data$y,
+     pch = 16,
+     col = "gray",
+     xlab = "x",
+     ylab = "y",
+     main = "BART vs Linear Regression on Nonlinear Data")
+
+# Add BART fitted curve
+lines(sim_data$x, bart_pred,
+      col = "blue",
+      lwd = 3)
+
+# Add linear regression fitted line
+lines(sim_data$x, lm_pred,
+      col = "red",
+      lwd = 3)
+
+# Add legend
+legend("topright",
+       legend = c("BART", "Linear Regression"),
+       col = c("blue", "red"),
+       lwd = 3)
+       
+       
+
+### Why this one is better
+#- the visual difference is much stronger
+#- BART’s curve will usually look clearly better
+#- the MSE gap is often larger than in `mtcars`
+
+### What to say
+#> In this example, the true relationship is nonlinear, so #linear regression is misspecified. BART performs much better #because it can flexibly follow the shape of the data.
+
+#If you want, I can also give you a **classification example #with more dramatic results** too.
+
+
+```
+
+
+
+
+---
+
+## Baby Example: Nonlinear Classification (BART vs GLM)
+
+#To better illustrate the advantage of BART, consider a #simulated dataset with a **nonlinear decision boundary**.
+
+#In this setting:
+#- GLM (logistic regression) assumes a linear boundary
+#- BART can model complex nonlinear patterns
+
+---
+
+
+
+
+
+```{r}
+library(BART)
+
+set.seed(123)
+
+# Generate data
+n <- 200
+x1 <- runif(n, -3, 3)
+x2 <- runif(n, -3, 3)
+
+# Nonlinear boundary (circle-like pattern)
+y <- ifelse(x1^2 + x2^2 < 4, 1, 0)
+
+sim_data <- data.frame(x1 = x1, x2 = x2, y = y)
+
+head(sim_data)
+# BART model
+x_mat <- as.matrix(sim_data[, c("x1", "x2")])
+y_vec <- sim_data$y
+
+set.seed(123)
+bart_model <- pbart(x.train = x_mat, y.train = y_vec)
+bart_prob <- bart_model$prob.train.mean
+bart_pred <- ifelse(bart_prob > 0.5, 1, 0)
+
+# GLM (logistic regression)
+glm_model <- glm(y ~ x1 + x2, data = sim_data, family = "binomial")
+glm_prob <- predict(glm_model, type = "response")
+glm_pred <- ifelse(glm_prob > 0.5, 1, 0)
+
+# Accuracy comparison
+bart_acc <- mean(bart_pred == y_vec)
+glm_acc <- mean(glm_pred == y_vec)
+
+bart_acc
+glm_acc
+par(mfrow = c(1,2))
+
+# Plot BART predictions
+plot(sim_data$x1, sim_data$x2,
+     col = ifelse(bart_pred == 1, "blue", "red"),
+     pch = 16,
+     main = "BART Classification",
+     xlab = "x1", ylab = "x2")
+
+# Plot GLM predictions
+plot(sim_data$x1, sim_data$x2,
+     col = ifelse(glm_pred == 1, "blue", "red"),
+     pch = 16,
+     main = "GLM Classification",
+     xlab = "x1", ylab = "x2")
+
+par(mfrow = c(1,1))
+
+```
+
+
+---
+
+## Baby Example: BART vs Boosting (mtcars)
+
+We use the `mtcars` dataset to compare:
+- **BART**
+- **Boosting (GBM)**
+
+We evaluate both models using:
+- **Training error**
+- **Testing error**
+
+This helps us understand how well each model generalizes.
+
+---
+
+## Step 1: Train-Test Split
+
+
+```{r}
+library(BART)
+library(gbm)
+
+set.seed(123)
+
+data(mtcars)
+
+# Create train/test split (70/30)
+n <- nrow(mtcars)
+train_idx <- sample(1:n, size = floor(0.7 * n))
+
+train <- mtcars[train_idx, ]
+test  <- mtcars[-train_idx, ]
+
+# Define predictors and response
+x_train <- as.matrix(train[, -1])
+y_train <- train$mpg
+
+x_test <- as.matrix(test[, -1])
+y_test <- test$mpg
+
+# -----------------------------
+# BART MODEL
+# -----------------------------
+bart_model <- wbart(x.train = x_train, y.train = y_train, x.test = x_test)
+
+bart_train_pred <- bart_model$yhat.train.mean
+bart_test_pred  <- bart_model$yhat.test.mean
+
+# -----------------------------
+# BOOSTING MODEL
+# -----------------------------
+boost_model <- gbm(
+  mpg ~ .,
+  data = train,
+  distribution = "gaussian",
+  n.trees = 200,
+  interaction.depth = 2,
+  shrinkage = 0.05,
+  bag.fraction = 1.0,      # use all training rows each iteration
+  n.minobsinnode = 2,      # smaller minimum node size
+  verbose = FALSE
+)
+
+boost_train_pred <- predict(boost_model, train, n.trees = 200)
+boost_test_pred  <- predict(boost_model, test, n.trees = 200)
+
+# -----------------------------
+# COMPARE TRAINING / TEST ERROR
+# -----------------------------
+bart_train_mse  <- mean((y_train - bart_train_pred)^2)
+bart_test_mse   <- mean((y_test - bart_test_pred)^2)
+
+boost_train_mse <- mean((y_train - boost_train_pred)^2)
+boost_test_mse  <- mean((y_test - boost_test_pred)^2)
+
+bart_train_mse
+bart_test_mse
+boost_train_mse
+boost_test_mse
+
+# -----------------------------
+# TEST SET PLOTS
+# -----------------------------
+par(mfrow = c(1, 2))
+
+plot(y_test, bart_test_pred,
+     col = "blue", pch = 16,
+     main = "BART Test Predictions",
+     xlab = "Actual MPG",
+     ylab = "Predicted MPG")
+abline(0, 1, lwd = 2)
+
+plot(y_test, boost_test_pred,
+     col = "red", pch = 16,
+     main = "Boosting Test Predictions",
+     xlab = "Actual MPG",
+     ylab = "Predicted MPG")
+abline(0, 1, lwd = 2)
+
+par(mfrow = c(1, 1))
+
+
+```
+
+
+```{r}
+
+# Create dataframe for plotting
+error_df <- data.frame(
+  Model = rep(c("BART", "Boosting"), each = 2),
+  Type = rep(c("Train Error", "Test Error"), times = 2),
+  MSE = c(bart_train_mse, bart_test_mse,
+          boost_train_mse, boost_test_mse)
+)
+
+# Plot using ggplot
+library(ggplot2)
+
+ggplot(error_df, aes(x = Model, y = MSE, fill = Type)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Training vs Testing Error Comparison",
+       y = "Mean Squared Error") +
+  theme_minimal()
+
+```
+
+
+  TEST
+```{r}
+library(BART)
+library(gbm)
+
+set.seed(123)
+
+data(mtcars)
+
+# Train/test split
+n <- nrow(mtcars)
+train_idx <- sample(1:n, size = floor(0.7 * n))
+
+train <- mtcars[train_idx, ]
+test  <- mtcars[-train_idx, ]
+
+x_train <- as.matrix(train[, -1])
+y_train <- train$mpg
+
+x_test <- as.matrix(test[, -1])
+y_test <- test$mpg
+
+# -----------------------------
+# BOOSTING: error over trees
+# -----------------------------
+n_trees <- 200
+
+boost_model <- gbm(
+  mpg ~ .,
+  data = train,
+  distribution = "gaussian",
+  n.trees = n_trees,
+  interaction.depth = 2,
+  shrinkage = 0.05,
+  bag.fraction = 1.0,
+  n.minobsinnode = 2,
+  verbose = FALSE
+)
+
+boost_train_err <- numeric(n_trees)
+boost_test_err  <- numeric(n_trees)
+
+for (i in 1:n_trees) {
+  pred_train <- predict(boost_model, train, n.trees = i)
+  pred_test  <- predict(boost_model, test,  n.trees = i)
+
+  boost_train_err[i] <- mean((y_train - pred_train)^2)
+  boost_test_err[i]  <- mean((y_test - pred_test)^2)
+}
+
+# -----------------------------
+# BART: error over posterior draws
+# -----------------------------
+bart_model <- wbart(
+  x.train = x_train,
+  y.train = y_train,
+  x.test  = x_test,
+  ndpost  = 200
+)
+
+bart_train_mat <- bart_model$yhat.train
+bart_test_mat  <- bart_model$yhat.test
+
+# Make sure rows = posterior draws, columns = observations
+if (ncol(bart_train_mat) == length(y_train)) {
+  bart_train_draws <- bart_train_mat
+} else {
+  bart_train_draws <- t(bart_train_mat)
+}
+
+if (ncol(bart_test_mat) == length(y_test)) {
+  bart_test_draws <- bart_test_mat
+} else {
+  bart_test_draws <- t(bart_test_mat)
+}
+
+n_draws <- nrow(bart_train_draws)
+
+bart_train_err <- numeric(n_draws)
+bart_test_err  <- numeric(n_draws)
+
+for (i in 1:n_draws) {
+  bart_train_err[i] <- mean((y_train - bart_train_draws[i, ])^2)
+  bart_test_err[i]  <- mean((y_test - bart_test_draws[i, ])^2)
+}
+
+# -----------------------------
+# Smooth BART errors
+# -----------------------------
+bart_train_err_smooth <- cumsum(bart_train_err) / seq_along(bart_train_err)
+bart_test_err_smooth  <- cumsum(bart_test_err) / seq_along(bart_test_err)
+
+# -----------------------------
+# PLOT
+# -----------------------------
+plot(boost_train_err, type = "l",
+     col = "blue", lwd = 2,
+     ylim = range(c(boost_train_err, boost_test_err,
+                    bart_train_err_smooth, bart_test_err_smooth)),
+     xlab = "Iterations / Draws",
+     ylab = "Mean Squared Error",
+     main = "BART vs Boosting: Train and Test Error")
+
+lines(boost_test_err, col = "blue", lty = 2, lwd = 2)
+lines(bart_train_err_smooth, col = "orange", lwd = 2)
+lines(bart_test_err_smooth, col = "orange", lty = 2, lwd = 2)
+
+legend("topright",
+       legend = c("Boosting Train", "Boosting Test",
+                  "BART Train", "BART Test"),
+       col = c("blue", "blue", "orange", "orange"),
+       lty = c(1, 2, 1, 2),
+       lwd = 2)
+       
+```
+
+
+talsk abotu reasing and meaning that abrt isnt overgiitits as mcuh as tree in cnease beause it much less agresstings, but still wth a compeppting testting error
+
