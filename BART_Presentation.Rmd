@@ -309,44 +309,56 @@ Assuming everything takes 1 slide, thats 13 slides to add, plus 2 may add. Again
 <!--Extra stuff included in template, keep for now as reference-->
 
 ---
+#### More info to add on this package, will likely add another slide for it
+## The  **dbarts** Package
+
+```{r}
+#install.packages("dbarts")
+library(dbarts)
+```
+
+There are two functions to fit a BART model
+```{r, eval = F}
+bart <- bart(y ~ x, data = data)
+bart2 <- bart2(y ~ x, data = data)
+```
+Use **bart2()**
+> bart() was the initial implementation while bart2 has more in depth defaults included
+
+What to know about dbarts:
+- keepTrees is defaulted to false. When you want to make predictions on data you don't have, switch it to true. 
+- dbarts has a predict() function similar to other libraries. 
+
+
+---
 
 ## Baby Example: BART for Classification
-
-To add to this example:
-- highlight that BART functions as a nonparametric Bayesian approach (it's a probability estimator)
-- use proper terminology (posteriors, prior, weak learners, MCMC, etc)
-- highlight the regularization prior to keep each tree as a weak learner: even without tuning, bart's default priors prevent it from overfitting the small iris dataset unlike glm which can be more sensitive to outliers
-- understand how dbarts package handles classification 
-- Quantitative results: Bart performs very well without the need for tuning (look into whether that is due to overfitting)
 
 We use the `iris` dataset to predict if a flower is a **Versicolor**. This uses the **probit link** theory discussed previously to model the probability of a binary outcome.
 
 ```{r}
 library(dbarts)
 data(iris)
+set.seed(1)
 
 iris_class <- iris
 iris_class$isVersicolor <- as.numeric(iris_class$Species == "versicolor")
 
-# Fitting BART for classification
-fit_class <- bart(x.train = iris_class[, 1:4], 
-                  y.train = iris_class$isVersicolor, 
-                  keepevery = 10, verbose = FALSE)
+fit_class <- bart2(isVersicolor ~ Sepal.Length + Sepal.Width + Petal.Length + Petal.Width, 
+                   data = iris_class, keepTrees = TRUE, verbose = FALSE)
 
-# Store posterior means (probabilities)
-bart_probs <- colMeans(fit_class$yhat.train)
-
-# Fit Logistic Regression for comparison
 glm_fit <- glm(isVersicolor ~ Sepal.Length + Sepal.Width + Petal.Length + Petal.Width, 
                data = iris_class, family = binomial)
-
 ```
 
 ---
+### Need to add title and format slide as well as comment code still
 BART uses **regularization via priors** to capture non-linear boundaries. While both models perform well, we can visualize where they differ in "decisiveness" and error types.
 
 ```{r, eval=F}
-# Predictions at 0.5 threshold
+bart_probs <- predict(fit_class, iris_class[, 1:4])
+bart_probs <- colMeans(bart_probs)
+
 bart_pred <- ifelse(bart_probs > 0.5, 1, 0)
 glm_pred <- ifelse(predict(glm_fit, type = "response") > 0.5, 1, 0)
 
@@ -360,19 +372,17 @@ df_errors <- data.frame(
     sum(glm_pred == 1 & iris_class$isVersicolor == 0)
   )
 )
-
-ggplot(df_errors, aes(x = Method, y = Count, fill = ErrorType)) +
-  geom_bar(stat = "identity", position = "dodge", color = "black") + 
-  scale_fill_manual(values = c("Missed Versicolors" = "darkred", "Wrongly Labeled" = "navy")) +
-  geom_text(aes(label = Count), position = position_dodge(width = 0.9), vjust = -0.5) +
-  labs(title = "Classification Mistakes", x = "", y = "Count") +
-  theme_bw()
 ```
+
 ---
-```{r, eval=T, echo=F,  fig.height=4.5}
+### We can use ggplot to compare accuracy as shown below
+```{r, eval=T, echo=F,  fig.height=4}
+bart_probs <- predict(fit_class, iris_class[, 1:4])
+bart_probs <- colMeans(bart_probs)
+
 # Predictions at 0.5 threshold
 bart_pred <- ifelse(bart_probs > 0.5, 1, 0)
-glm_pred <- ifelse(predict(glm_fit, type = "response") > 0.5, 1, 0)
+glm_pred  <- ifelse(predict(glm_fit, type = "response") > 0.5, 1, 0)
 
 df_errors <- data.frame(
   Method = rep(c("BART", "Logistic Regression"), each = 2),
@@ -384,7 +394,6 @@ df_errors <- data.frame(
     sum(glm_pred == 1 & iris_class$isVersicolor == 0)
   )
 )
-
 ggplot(df_errors, aes(x = Method, y = Count, fill = ErrorType)) +
   geom_bar(stat = "identity", position = "dodge", color = "black") + 
   scale_fill_manual(values = c("Missed Versicolors" = "darkred", "Wrongly Labeled" = "navy")) +
@@ -394,67 +403,45 @@ ggplot(df_errors, aes(x = Method, y = Count, fill = ErrorType)) +
 ```
 ---
 ## Classification: Quantitative Results
-
+## need to add analysis still
 We evaluate performance using Accuracy, Misclassification Rate, Precision, and Recall. While both models perform well on the `iris` data, BART's **sum-of-trees** structure provides a robust alternative to the linear assumptions of Logistic Regression.
-```{r, echo = F}
+
+```{r, echo=FALSE}
+bart_probs <- predict(fit_class, iris_class[, 1:4])
+bart_probs <- colMeans(bart_probs)
+
 df_plot_class <- data.frame(
-  Actual = as.factor(iris_class$isVersicolor),
-  BART_Prob = bart_probs, 
-  GLM_Prob = predict(glm_fit, type = "response")
+  Actual    = factor(iris_class$isVersicolor, levels = c(0, 1)),
+  BART_Prob = as.numeric(bart_probs),
+  GLM_Prob  = as.numeric(predict(glm_fit, type = "response"))
 )
+df_plot_class$BART_Pred <- factor(ifelse(df_plot_class$BART_Prob > 0.5, 1, 0), levels = c(0, 1))
+df_plot_class$GLM_Pred  <- factor(ifelse(df_plot_class$GLM_Prob > 0.5, 1, 0), levels = c(0, 1))
 
-library(tidyr)
-library(ggplot2)
-
-# Convert probabilities to binary predictions (Threshold = 0.5)
-df_plot_class$BART_Pred <- ifelse(df_plot_class$BART_Prob > 0.5, 1, 0)
-df_plot_class$GLM_Pred <- ifelse(df_plot_class$GLM_Prob > 0.5, 1, 0)
-
-# Calculate Accuracy
-bart_acc <- mean(df_plot_class$BART_Pred == iris_class$isVersicolor)
-glm_acc <- mean(df_plot_class$GLM_Pred == iris_class$isVersicolor)
-
-# Create a simple dataframe for the barplot
-df_acc <- data.frame(
-  Method = c("BART", "Logistic Regression"),
-  Accuracy = c(bart_acc, glm_acc)
-)
-get_metrics <- function(tab) {
-  tp <- tab[2,2] # True Positive
-  tn <- tab[1,1] # True Negative
-  fp <- tab[1,2] # False Positive
-  fn <- tab[2,1] # False Negative
-  
-  accuracy <- (tp + tn) / sum(tab)
-  misclassification <- (fp + fn) / sum(tab)
-  precision <- tp / (tp + fp)
-  recall <- tp / (tp + fn) # Also known as True Positive Rate
-  
-  return(c(Accuracy = accuracy, Misclass = misclassification, 
-           Precision = precision, Recall = recall))
-}
-
-```
-```{r classification-metrics, echo=FALSE}
-# Calculate Confusion Matrices
 bart_table <- table(Actual = df_plot_class$Actual, Predicted = df_plot_class$BART_Pred)
 glm_table  <- table(Actual = df_plot_class$Actual, Predicted = df_plot_class$GLM_Pred)
 
-# Calculate metrics using your function
-metrics_list <- list(
-  BART = get_metrics(bart_table),
-  GLM  = get_metrics(glm_table)
-)
+get_metrics <- function(tab) {
+  tn <- tab[1,1]; fp <- tab[1,2]; fn <- tab[2,1]; tp <- tab[2,2]
+  accuracy <- (tp + tn) / sum(tab)
+  precision <- ifelse((tp + fp) > 0, tp / (tp + fp), 0)
+  recall    <- ifelse((tp + fn) > 0, tp / (tp + fn), 0)
+  return(c(Accuracy = accuracy, Precision = precision, Recall = recall))
+}
 
-# Format for display
+metrics_list <- list(BART = get_metrics(bart_table), GLM = get_metrics(glm_table))
+
 comparison_df <- data.frame(
-  Metric = c("Accuracy", "Misclassification Rate", "Precision", "True Positive Rate (Recall)"),
+  Metric = c("Accuracy", "Precision", "True Positive Rate (Recall)"),
   BART   = scales::percent(metrics_list$BART, accuracy = 0.1),
   GLM    = scales::percent(metrics_list$GLM, accuracy = 0.1)
 )
 
-knitr::kable(comparison_df, format = "html", caption = "Performance Comparison: BART vs. GLM")
+knitr::kable(comparison_df, format = "html", 
+             caption = "BART vs. GLM")
+
 ```
+
 
 ---
 
@@ -466,7 +453,7 @@ knitr::kable(comparison_df, format = "html", caption = "Performance Comparison: 
 ```
 
 - will likely follow similar format to the classification example
-- making sure to follow guidlines in rubric and cover all our bases
+- making sure to follow guidelines in rubric and cover all our bases
 
 ---
 
