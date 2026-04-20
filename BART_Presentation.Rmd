@@ -500,7 +500,7 @@ knitr::kable(comparison_df, format = "html",
 
 ```
 
-
+---
 <<<<<<< HEAD
 =======
 
@@ -521,12 +521,15 @@ Goal:
 
 ```{r  echo=TRUE, results='hide'}
 ## Step 1: Train/Test Split {.smaller}
+```
 
 ```{r, echo=TRUE, results='hide'}
 # Load the packages we need:
 # BART for Bayesian Additive Regression Trees
 # gbm for boosting
+#install.packages("BART")
 library(BART)
+#install.packages("gbm")
 library(gbm)
 
 # Set a seed so the random split is reproducible
@@ -552,6 +555,7 @@ y_train <- train$mpg
 
 x_test <- as.matrix(test[, -1])
 y_test <- test$mpg
+
 ```
 ---
 
@@ -635,7 +639,6 @@ bart_test_err_smooth  <- cumsum(bart_test_err) / seq_along(bart_test_err)
 ```
 ---
 
-<<<<<<< HEAD
 - will likely follow similar format to the classification example
 - making sure to follow guidelines in rubric and cover all our bases
 =======
