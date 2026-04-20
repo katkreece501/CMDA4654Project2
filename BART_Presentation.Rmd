@@ -237,6 +237,34 @@ In the BART framework, we never explicitly calculate the true posterior; the dis
 
 ## Background on Sampling Process
 
+For each iteration, we want to first draw the set $(T_j, M_j)$ for $j=1,\dots,m$ from the distribution of all other trees and associated terminal node parameters, $(T_{(j)}, M_{(j)}$, the error $\sigma$, and the data $\mathbf{y}$, then draw $\sigma$ from the distribution of all the trees and the data.
+
+Instead of drawing from the full, true posterior, BART use a _Gibbs sampler_ to draw from the conditional distributions: 
+
+$$
+(T_j,M_j)\mid T_{(j)}, M_{(j)},\sigma,\mathbf{y}\ \text{ and then }\ \sigma\mid T_1,\dots,T_j,M_1,\dots,M_j,\mathbf{y}
+$$
+
+For each iteration, we first draw the set $(T_j, M_j)$ for $j=1,\dots,m$ from the distribution of all other trees and associated terminal node parameters, $(T_{(j)}, M_{(j)}$, the error $\sigma$, and the data $y$, then draw $\sigma$ from the distribution of all the trees and the data.
+
+Note that $(T_j, M_j)$ only depends on the data and the other $m-1$ trees through the residual formula:
+
+$$
+\mathbf{R}_j=\mathbf{y}-\sum_{k\ne j}g(\mathbf{x},T_k,M_k)
+$$
+
+So we can equivalently draw from $(T_j, M_j)\mid\mathbf{R}_j,\sigma$. Furthermore, the choice of the normal distribution for the prior on the terminal node parameters, allows $M_j$ to be integrated out with an exact solution as:
+
+$$
+p(T_j\mid \mathbf{R}_j,\sigma)\propto p(T_j)\int p(\mathbf{R}_j\mid M_j,T_j,\sigma)p(M_j\mid T_j,\sigma)\,dM_j
+$$
+
+Thus we draw from the distributions:
+
+$$
+T_j|\mathbf{R}_j,\sigma \ \text{ and then }\ M_j\mid T_j, \mathbf{R}_j, \sigma
+$$
+
 ---
 
 ## Sample Iteration
