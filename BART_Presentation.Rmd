@@ -52,7 +52,7 @@ where $\mathbf{x}=(x_1,x_2,...,x_p)$. Suppose we also want to account for possib
 
 Traditional Regression:
 - Search for a polynomial that fits to the data without overfitting
-- Possibly need to do other techniques (LOESS, splines, etc.), and do related cross-validation
+- Possibly need to do other techniques, and do related cross-validation
 - Is there a better way?
 
 ---
@@ -204,7 +204,7 @@ For higher values of $m$ (more trees), the prior on individual parameters tighte
 
 ## Prior on the Error Variance
 
-The prior on $\sigma^2$ is given by the inverse chi-squared distribution $\frac{\lambda \nu}{\chi^2}$, where $\nu$ is the degrees of freedom for the prior and $\lambda$ based a "rough data-based overestimate" $\hat{\sigma}$ of $\sigma$, either the sample standard deviation or the square root of the MSE from an OLS fit (Note the inherent assumption that BART will model the data better than OLS). 
+The prior on $\sigma^2$ is given by the inverse chi-squared distribution $\frac{\lambda \nu}{\chi^2}$, where $\nu$ is the degrees of freedom for the prior and $\lambda$ based a "rough data-based overestimate" $\hat{\sigma}$ of $\sigma$, either the sample standard deviation or the square root of the MSE (RMSE) from an OLS fit (Note the inherent assumption that BART will model the data better than OLS). 
 
 Chimpan et al. recommend picking $\nu$ between 3 and 10, inclusive, and picking $\lambda$ such that $\hat{\sigma}$ is located at the $q$th quantile of the prior for some selected $q$; they recommend 0.75 for a conservative estimate, 0.99 for an aggressive estimate, and 0.9 as the default.
 
@@ -373,29 +373,85 @@ The median of the responses may also be used. To measure uncertainty, $1-\alpha$
 
 There are two recommended methods for choosing the hyperparameters $\alpha$, $\beta$ ($T_j$ prior), $k$ ($\mu_{ji}$ prior), $\nu$, $q$ ($\sigma^2$ prior), $m$, $B$, $K$, and probabilities of each possible tree modification move:
 
-1. Cross validation from reasonable values
+1. $k$-fold cross validation from reasonable values
 
-2. Use recommended defaults of $\alpha = 0.95$, $\beta=2$, $k=2$, $\nu=3$, $q=0.90$, $m = 200$, $B = 200$, $K = 1000$, $P(\text{grow})=P(\text{prune})=0.25$, $P(\text{change split condition})=0.40$, and $P(\text{swap parent and child})=0.10$.
+2. Use recommended defaults of $\alpha = 0.95$, $\beta=2$, $k=2$, $\nu=3$, $q=0.90$, $m = 200$, $P(\text{grow})=P(\text{prune})=0.25$, $P(\text{change split condition})=0.40$, and $P(\text{swap parent and child})=0.10$
+  - For $B$ and $K$, the original paper variously uses $B = 200$ & $K = 1000$, $B = 1000$ & $K=5000$, and $B=1000$ & $K=3000$ for different experiments
+
+3. A mix of cross validation and pre-selected defaults
+
+Using default parameters gives similar performance to other commonly used machine learning algorithms, but cross-validation for at least some parameters gives BART a noticeably better performance (particularly for large numbers of parameters).
+
+---
+
+.pull-left[
+![](./BART_comparison.png)
+]
+
+.pull-right[
+![](./BART_comparison_table.png)
+]
+
+Results are from comparing BART with default parameters ($B=200$, $K=1000$), BART with 5-fold cross validation for $k$, $\nu$, $q$, and $m$, along with selected other methods with 5-fold cross-validation. 42 different data sets were used, and RMSE measured on testing set predictions.
+
+While BART with cross validation has the best results, BART with default parameters is comparable or better than the other methods.
+
+.footnote[From _BART: Bayesian additive regression trees_, Chipman et al.]
+---
+
+.pull-left[
+![](./BART_p_comp.png)
+]
+
+.pull-right[
+![](./BART_p_comp_table.png)
+]
+
+Results are from comparing BART with default parameters ($B=1000$, $K=3000$), BART with 5-fold cross validation for $k$, $\nu$, $q$, and $m$, along with selected other methods with 5-fold cross-validation. Simulated data was generated from a true function that only depended on 5 predictors, but with $p$ included in the data set. 
+
+BART with cross validation maintains consistently good performance across tested values of $p$. However, BART with default parameters declines from being the best method for $p=10$ to being one of the worst for $p=1000$. 
+This is one of the major weaknesses of BART; another is that BART has a longer execution time than comparable methods (random forests, neural networks, gradient boosting) for the same values of $n$. 
+
+.footnote[From _BART: Bayesian additive regression trees_, Chipman et al.]
+---
+
+## When (and when not) to use BART
+
+.pull-left[
+If all of the below are true...
+
+- Your data has non-linear and interaction effects
+- Your data doesn't have a large amount of possible predictors
+- You want to do minimal or no cross validation
+- You want to easily quantify uncertainty
+- You have at least a basic understanding of Bayesian statistics
+
+...BART is probably a good method to try
+
+]
+
+.pull-right[
+If any of the below are true...
+- Your data has a clear linear, quadratic fit, or depends on a known function
+- Your data has a very large number of possible predictors
+- You really care about execution time (i.e., seconds are important to you)
+- You don't want to learn any Bayesian statistics
+
+...BART probably isn't for you.
+]
+
 
 ---
 
 ## To add or possibly add
 
-To add:
+Jake to add:
 
-- Output from BART: posterior distribution (how its generated), posterior intervals
-- Common Default Parameter choices, show evidence of why these are good
-- Choosing your own parameters, and how you would go about doing so
-- Limitations (high computational time, difficultly with large sets of parameters, lack of power to find which variables have predictive power)
-- Common Use cases
-- When would you want to use BART vs when you wouldn't want to use it
+- BART for classification
+- Developments in BART modeling since original paper
+- Common use cases of BART
+- BART R libraries (BART, dBART, differences between them)
 
-May add:
-
-- Example of tree used for regression (diagram)
-- Modifications to BART algorithm that other researchers have done since the BART was first introduced (this would be just a list, not in depth at ALL)
-
-Assuming everything takes 1 slide, thats 13 slides to add, plus 2 may add. Again, not accounting for any of my bullets that we brake up into multiple slides or anything else that we add
 <!--Extra stuff included in template, keep for now as reference-->
 
 ---
