@@ -41,6 +41,7 @@ library(ggplot2)
 theme_set(theme_bw())
 ```
 
+<!-- 
 ## Central Problem
 
 Suppose we want to make inference for some continuous $Y$ that depends on the unknown function
@@ -56,6 +57,8 @@ Traditional Regression:
 - Is there a better way?
 
 ---
+
+--->
 
 ## Sum Of Trees Model
 
@@ -410,7 +413,7 @@ While BART with cross validation has the best results, BART with default paramet
 Results are from comparing BART with default parameters ($B=1000$, $K=3000$), BART with 5-fold cross validation for $k$, $\nu$, $q$, and $m$, along with selected other methods with 5-fold cross-validation. Simulated data was generated from a true function that only depended on 5 predictors, but with $p$ included in the data set. 
 
 BART with cross validation maintains consistently good performance across tested values of $p$. However, BART with default parameters declines from being the best method for $p=10$ to being one of the worst for $p=1000$. 
-This is one of the major weaknesses of BART; another is that BART has a longer execution time than comparable methods (random forests, neural networks, gradient boosting) for the same values of $n$. 
+This is one of the major weaknesses of BART; the others are that it assumes that variance is constant for all $Y$ data, and its computationally expensive with the number of iterations and trees you have to store.
 
 .footnote[From _BART: Bayesian additive regression trees_, Chipman et al.]
 ---
@@ -422,6 +425,7 @@ If all of the below are true...
 
 - Your data has non-linear and interaction effects
 - Your data doesn't have a large amount of possible predictors
+- Your variance is near-uniform
 - You want to do minimal or no cross validation
 - You want to easily quantify uncertainty
 - You have at least a basic understanding of Bayesian statistics
@@ -432,8 +436,10 @@ If all of the below are true...
 
 .pull-right[
 If any of the below are true...
-- Your data has a clear linear, quadratic fit, or depends on a known function
+- Your data has a clear linear or quadratic fit
 - Your data has a very large number of possible predictors
+- Your data has non-constant variance
+- You want a resulting smooth curve
 - You really care about execution time (i.e., seconds are important to you)
 - You don't want to learn any Bayesian statistics
 
