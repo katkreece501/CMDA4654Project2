@@ -762,11 +762,13 @@ In boosting, the training error decreases rapidly toward zero, while the test er
 
 ---
 
+## Main Example: ___ Dataset
 
+Data Dictionary:
 
+Goal:
 
-
-
+---
 
 
 
