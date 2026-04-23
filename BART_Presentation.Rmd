@@ -821,7 +821,7 @@ bart_model = bart2(Target ~ baseline.value + accelerations + fetal_movement +
 
 ---
 
-
+**Now that the model has been run, predictions can be made and the accuracy can be found:**
 
 ```{r}
 
@@ -835,12 +835,12 @@ bart_errors <- data.frame(
   Method = rep(c("Normal Fetuses", "High Risk Fetuses"), each = 2),
   ErrorType = rep(c("Correctly Labeled", "Incorrectly Labeled"), 1),
   Count = c(
-    sum(bart_preds == 0 & test_df$Target == 0),
-    sum(bart_preds == 1 & test_df$Target == 0),
-    sum(bart_preds == 1 & test_df$Target == 1),
-    sum(bart_preds == 0 & test_df$Target == 1)
+    sum(bart_preds == 0 & test_df$Target == 0), sum(bart_preds == 1 & test_df$Target == 0),
+    sum(bart_preds == 1 & test_df$Target == 1), sum(bart_preds == 0 & test_df$Target == 1)
   )
 )
+
+bart_errors
 ```
 
 ---
@@ -857,6 +857,26 @@ ggplot(bart_errors, aes(x = Method, y = Count, fill = ErrorType)) +
 ```
 
 ---
+
+## Other Metrics
+
+In addition to visualizing the raw number of correct and incorrect classifications, this can be expanded on to get the percentage accuracy.
+
+```{r}
+totalAccuracy = (sum(bart_preds == 0 & test_df$Target == 0) + 
+                   sum(bart_preds == 1 & test_df$Target == 1)) / length(test_df$Target)
+cat("Overall Model Accuracy:", totalAccuracy)
+```
+
+```{r}
+normalAccuracy = sum(bart_preds == 0 & test_df$Target == 0) / length(which(test_df$Target == 0))
+cat("Normal Fetus Accuracy:", normalAccuracy)
+```
+
+```{r}
+hrAccuracy = sum(bart_preds == 1 & test_df$Target == 1) / length(which(test_df$Target == 1))
+cat("High Risk Fetus Accuracy:", hrAccuracy)
+```
 
 ---
 
