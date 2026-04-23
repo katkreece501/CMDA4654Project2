@@ -486,40 +486,49 @@ What to know about dbarts:
 
 ## Baby Example: BART for Classification
 
-We use the `iris` dataset to predict if a flower is a **Versicolor**. This uses the **probit link** theory discussed previously to model the probability of a binary outcome.
+We use the `iris` dataset to predict if a flower is a **Versicolor**. This uses the **probit link** theory discussed previously to model the probability of a binary outcome. 
+
+Below three models are fit.
+- First, BART is fit on all the variables
+- Next, BART is fit using on Sepal.Length and Sepal.Width
+- Finally a logistic regression model is fit on all the variables for comparison
 
 ```{r}
-library(dbarts)
 data(iris)
 set.seed(1)
-
 iris_class <- iris
 iris_class$isVersicolor <- as.numeric(iris_class$Species == "versicolor")
 
 fit_class <- bart2(isVersicolor ~ Sepal.Length + Sepal.Width + Petal.Length + Petal.Width, 
                    data = iris_class, keepTrees = TRUE, verbose = FALSE)
-
+reduced_fit <- bart2(isVersicolor ~ Sepal.Length + Sepal.Width, 
+                     data = iris_class, keepTrees = TRUE, verbose = FALSE)
 glm_fit <- glm(isVersicolor ~ Sepal.Length + Sepal.Width + Petal.Length + Petal.Width, 
                data = iris_class, family = binomial)
 ```
 
 ---
-### Need to add title and format slide as well as comment code still
-BART uses **regularization via priors** to capture non-linear boundaries. While both models perform well, we can visualize where they differ in "decisiveness" and error types.
-
+### Calculate Prediction Accuracies
 ```{r, eval=F}
+# First use the predict() function in dbarts to generate predictions
 bart_probs <- predict(fit_class, iris_class[, 1:4])
+# Next use the colMeans() function to find the mean of each row in the matrix generated previously
 bart_probs <- colMeans(bart_probs)
-
+# If the average is greater than 0.5, it is labelled as a versicolor (1)
 bart_pred <- ifelse(bart_probs > 0.5, 1, 0)
+
+# Collect glm predictions with the same decision threshold of 0.5
 glm_pred <- ifelse(predict(glm_fit, type = "response") > 0.5, 1, 0)
 
+# Store the resulting counts of correct and incorrect predictions 
 df_errors <- data.frame(
   Method = rep(c("BART", "Logistic Regression"), each = 2),
   ErrorType = rep(c("Missed Versicolors", "Wrongly Labeled"), 2),
   Count = c(
     sum(bart_pred == 0 & iris_class$isVersicolor == 1),
     sum(bart_pred == 1 & iris_class$isVersicolor == 0),
+    sum(r_bart_pred == 0 & iris_class$isVersicolor == 1),
+    sum(r_bart_pred == 1 & iris_class$isVersicolor == 0),
     sum(glm_pred == 0 & iris_class$isVersicolor == 1),
     sum(glm_pred == 1 & iris_class$isVersicolor == 0)
   )
@@ -527,21 +536,26 @@ df_errors <- data.frame(
 ```
 
 ---
-### We can use ggplot to compare accuracy as shown below
+### Using GGplot to compare the accuracies
 ```{r, eval=T, echo=F,  fig.height=4}
 bart_probs <- predict(fit_class, iris_class[, 1:4])
 bart_probs <- colMeans(bart_probs)
-
-# Predictions at 0.5 threshold
 bart_pred <- ifelse(bart_probs > 0.5, 1, 0)
+
+r_bart_probs <- predict(reduced_fit, iris_class[, 1:4])
+r_bart_probs <- colMeans(r_bart_probs)
+r_bart_pred <- ifelse(r_bart_probs > 0.5, 1, 0)
+
 glm_pred  <- ifelse(predict(glm_fit, type = "response") > 0.5, 1, 0)
 
 df_errors <- data.frame(
-  Method = rep(c("BART", "Logistic Regression"), each = 2),
-  ErrorType = rep(c("Missed Versicolors", "Wrongly Labeled"), 2),
+  Method = rep(c("BART (Full)", "BART (Sepal Only)", "GLM (Full)"), each = 2),
+  ErrorType = rep(c("Missed Versicolors", "Wrongly Labeled"), 3),
   Count = c(
     sum(bart_pred == 0 & iris_class$isVersicolor == 1),
     sum(bart_pred == 1 & iris_class$isVersicolor == 0),
+    sum(r_bart_pred == 0 & iris_class$isVersicolor == 1),
+    sum(r_bart_pred == 1 & iris_class$isVersicolor == 0),
     sum(glm_pred == 0 & iris_class$isVersicolor == 1),
     sum(glm_pred == 1 & iris_class$isVersicolor == 0)
   )
@@ -555,12 +569,10 @@ ggplot(df_errors, aes(x = Method, y = Count, fill = ErrorType)) +
 ```
 ---
 ## Classification: Quantitative Results
-## need to add analysis still
+
 We evaluate performance using Accuracy, Misclassification Rate, Precision, and Recall. While both models perform well on the `iris` data, BART's **sum-of-trees** structure provides a robust alternative to the linear assumptions of Logistic Regression.
 
 ```{r, echo=FALSE}
-bart_probs <- predict(fit_class, iris_class[, 1:4])
-bart_probs <- colMeans(bart_probs)
 
 df_plot_class <- data.frame(
   Actual    = factor(iris_class$isVersicolor, levels = c(0, 1)),
@@ -581,20 +593,28 @@ get_metrics <- function(tab) {
   return(c(Accuracy = accuracy, Precision = precision, Recall = recall))
 }
 
-metrics_list <- list(BART = get_metrics(bart_table), GLM = get_metrics(glm_table))
+metrics_list <- list(
+  `BART (Full)`  = get_metrics(table(Actual = iris_class$isVersicolor, Predicted = bart_pred)),
+  `BART (Sepal)` = get_metrics(table(Actual = iris_class$isVersicolor, Predicted = r_bart_pred)),
+  `GLM (Full)`   = get_metrics(table(Actual = iris_class$isVersicolor, Predicted = glm_pred))
+)
 
 comparison_df <- data.frame(
-  Metric = c("Accuracy", "Precision", "True Positive Rate (Recall)"),
-  BART   = scales::percent(metrics_list$BART, accuracy = 0.1),
-  GLM    = scales::percent(metrics_list$GLM, accuracy = 0.1)
+  Metric = c("Accuracy (TP+TN)", "Precision (TP/TP+FP)", "Recall (TP/TP+FN)"),
+  `BART_Full`  = as.character(scales::percent(unname(metrics_list[[1]]), accuracy = 0.1)),
+  `BART_Reduced` = as.character(scales::percent(unname(metrics_list[[2]]), accuracy = 0.1)),
+  `GLM_Full`   = as.character(scales::percent(unname(metrics_list[[3]]), accuracy = 0.1))
 )
 
 knitr::kable(comparison_df, format = "html", 
-             caption = "BART vs. GLM")
+             caption = "BART vs. GLM", row.names=F)
 
 ```
 
+The full bart model shows around 98% accuracy and position. This makes sense given it has the petal data. Without the petal data, the reduced BART model only identifies versicolors around 80% of the time and how more false positives than in the full model. Even with less data, the reduced BART model still performs significantly better than the generalized regression model. 
+
 ---
+
 
 ## Baby Example: BART vs Boosting (mtcars)
 
