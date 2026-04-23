@@ -781,7 +781,18 @@ The data can be viewed here: https://drive.google.com/drive/u/1/folders/1AP13V0-
 
 ## Data Dictionary
 
-Figure Out Sumn to do here later
+Going forward, these variables will be relevant for this problem:
+
+```{r, echo=FALSE}
+dictionaryDF <- data.frame(
+  Variable = c("Accelerations", "Baseline Value", "Fetal Movement", "Decelerations", "Uterine Contractions", "Health Score"),
+  Description   = c("Number of Times Heartrate is 15 BPM Over Baseline Value per Second", "Baseline Heartrate Level", "Number of Distinct Fetal Movements per Second", "Number of Times Heartrate is 15 BPM Under Baseline Value per Second", "Number of Uterine Contractions per Second", "Score Representing the current Health Status of a Fetus"),
+  Type = c("Float", "Integer", "Integer", "Integer", "Float", "Integer (1, 2, or 3)") 
+)
+
+knitr::kable(dictionaryDF, format = "html", 
+             caption = "Fetal Health Data Dictionary")
+```
 
 ---
 
@@ -796,9 +807,8 @@ fetalCSV <- na.omit(fetalCSV)
 # Changes Score to 2-Dimensional with 0= Normal and 1 = Needs Care (Suspect/Pathological)
 fetalCSV$Target <- ifelse(fetalCSV$fetal_health > 1, 1, 0)
 
-classX = model.matrix(~ baseline.value + accelerations + fetal_movement + uterine_contractions + 
-                        light_decelerations + severe_decelerations + prolongued_decelerations + 
-                        abnormal_short_term_variability - 1, data = fetalCSV)
+classX = model.matrix(~ baseline.value + accelerations + fetal_movement + severe_decelerations + 
+                        uterine_contractions, data = fetalCSV)
 classY = fetalCSV$Target
 
 #Training/Testing Splits
