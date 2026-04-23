@@ -796,7 +796,9 @@ fetalCSV <- na.omit(fetalCSV)
 # Changes Score to 2-Dimensional with 0= Normal and 1 = Needs Care (Suspect/Pathological)
 fetalCSV$Target <- ifelse(fetalCSV$fetal_health > 1, 1, 0)
 
-classX = model.matrix(~ . - fetal_health - Target - 1, data = fetalCSV)
+classX = model.matrix(~ baseline.value + accelerations + fetal_movement + uterine_contractions + 
+                        light_decelerations + severe_decelerations + prolongued_decelerations + 
+                        abnormal_short_term_variability - 1, data = fetalCSV)
 classY = fetalCSV$Target
 
 #Training/Testing Splits
@@ -806,7 +808,6 @@ train_indices = sample(1:nrow(classX), 0.7 * nrow(classX))
 
 trainX = classX[train_indices, ]
 trainY = classY[train_indices]
-
 testX  = classX[-train_indices, ]
 testY  = classY[-train_indices]
 ```
