@@ -771,8 +771,6 @@ This can be done with a Cardiotogram (CTG).  A CTG uses ultrasound waves to capt
 Additionally, the data gives a "health score" for each fetus to determine their risk level.  For this specific dataset, health levels are defined as follows:
 **1: Normal | 2: Suspect | 3: Pathological**
 
-In this case, the following questions looks to be answered: **Can the given CTG Metrics correctly classify is a given fetus is at high risk (Health Score of 2 or 3)?** 
-
 Ayres de Campos et al. (2000) SisPorto 2.0 A Program for Automated Analysis of Cardiotocograms. J Matern Fetal Med 5:311-318
 
 The data can be viewed here: https://drive.google.com/drive/u/1/folders/1AP13V0-5hTJb7Yuz2BjG6O9Ak_VTppIy
@@ -785,9 +783,9 @@ Going forward, these variables will be relevant for this problem:
 
 ```{r, echo=FALSE}
 dictionaryDF <- data.frame(
-  Variable = c("Accelerations", "Baseline Value", "Fetal Movement", "Decelerations", "Uterine Contractions", "Health Score"),
-  Description   = c("Number of Times Heartrate is 15 BPM Over Baseline Value per Second", "Baseline Heartrate Level", "Number of Distinct Fetal Movements per Second", "Number of Times Heartrate is 15 BPM Under Baseline Value per Second", "Number of Uterine Contractions per Second", "Score Representing the current Health Status of a Fetus"),
-  Type = c("Float", "Integer", "Integer", "Integer", "Float", "Integer (1, 2, or 3)") 
+  Variable = c("Abnormal Short Term Variability","Accelerations", "Baseline Value", "Fetal Movement", "Decelerations", "Uterine Contractions", "Health Score"),
+  Description   = c("Percentage of time the fetal heart rate exhibits reduced beat-to-beat variability","Number of Times Heartrate is 15 BPM Over Baseline Value per Second", "Baseline Heartrate Level", "Number of Distinct Fetal Movements per Second", "Number of Times Heartrate is 15 BPM Under Baseline Value per Second", "Number of Uterine Contractions per Second", "Score Representing the current Health Status of a Fetus"),
+  Type = c("Integer", "Float", "Integer", "Integer", "Integer", "Float", "Integer (1, 2, or 3)") 
 )
 
 knitr::kable(dictionaryDF, format = "html", 
@@ -796,9 +794,11 @@ knitr::kable(dictionaryDF, format = "html",
 
 ---
 
-## Data Preparation
+## Running BART Model
 
-To begin the dataset needs to be cleaned of missing values, followed by assigning our predictor and response variables. After, the dataset is split into training/testing sets via random sampling.
+To begin the dataset needs to be cleaned of missing values, followed by assigning our predictor and response variables.
+
+After, BART can be run to answer the following question: **Can the given CTG Metrics correctly classify if a given fetus is at high risk (Health Score of 2 or 3)?**
 
 ```{r echo=TRUE}
 fetalCSV <- read.csv("fetal_health.csv")
@@ -807,36 +807,56 @@ fetalCSV <- na.omit(fetalCSV)
 # Changes Score to 2-Dimensional with 0= Normal and 1 = Needs Care (Suspect/Pathological)
 fetalCSV$Target <- ifelse(fetalCSV$fetal_health > 1, 1, 0)
 
-classX = model.matrix(~ baseline.value + accelerations + fetal_movement + severe_decelerations + 
-                        uterine_contractions, data = fetalCSV)
-classY = fetalCSV$Target
-
-#Training/Testing Splits
 set.seed(1)
+# 70% Training / 30% Testing
+train_indices = sample(1:nrow(fetalCSV), 0.7 * nrow(fetalCSV))
 
-train_indices = sample(1:nrow(classX), 0.7 * nrow(classX))
+train_df = fetalCSV[train_indices, ]
+test_df  = fetalCSV[-train_indices, ]
 
-trainX = classX[train_indices, ]
-trainY = classY[train_indices]
-testX  = classX[-train_indices, ]
-testY  = classY[-train_indices]
+bart_model = bart2(Target ~ baseline.value + accelerations + fetal_movement + 
+                     light_decelerations + uterine_contractions + abnormal_short_term_variability, 
+                   data = train_df, keepTrees = TRUE, verbose = FALSE)
 ```
 
 ---
 
-## Running BART Model
 
-Now, the BART model can be run on the data.
 
-```{r, results='hide'}
-bart_model = bart2(trainX, trainY, testX, keepTrees = TRUE, verbose = FALSE)
+```{r}
+
+bart_raw_preds  = predict(bart_model, newdata = test_df)
+bart_prob_preds = colMeans(bart_raw_preds)
+
+# Using the standard 0.5 threshold 
+bart_preds = ifelse(bart_prob_preds > 0.5, 1, 0)
+
+bart_errors <- data.frame(
+  Method = rep(c("Normal Fetuses", "High Risk Fetuses"), each = 2),
+  ErrorType = rep(c("Correctly Labeled", "Incorrectly Labeled"), 1),
+  Count = c(
+    sum(bart_preds == 0 & test_df$Target == 0),
+    sum(bart_preds == 1 & test_df$Target == 0),
+    sum(bart_preds == 1 & test_df$Target == 1),
+    sum(bart_preds == 0 & test_df$Target == 1)
+  )
+)
 ```
-
-FIND SOMETHING ELSE FOR HERE
 
 ---
 
-ADD IN STUFF SHOWING BART'S METRICS, COMBINE THE PLOTS YOU HAVE WITH BABY EXAMPLE METRICS
+## Visualizing BART's Accuracy
+
+```{r, echo=FALSE, fig.height=4}
+ggplot(bart_errors, aes(x = Method, y = Count, fill = ErrorType)) +
+  geom_bar(stat = "identity", position = "dodge", color = "black") + 
+  scale_fill_manual(values = c("Correctly Labeled" = "navy", "Incorrectly Labeled" = "darkred")) +
+  geom_text(aes(label = Count), position = position_dodge(width = 0.9), vjust = -0.5) +
+  labs(title = "Classification Mistakes", x = "", y = "Count") +
+  theme_bw()
+```
+
+---
 
 ---
 
