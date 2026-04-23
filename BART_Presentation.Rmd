@@ -762,18 +762,72 @@ In boosting, the training error decreases rapidly toward zero, while the test er
 
 ---
 
-## Main Example: ___ Dataset
+## Main Example: Fetal Health Dataset
 
-Data Dictionary:
+In childbirth, there are a slurry of complications that can occur.  To best prevent these complications, constant monitoring of the fetus can help detect any issues early on which can protect the mother/baby throughout the whole process.
 
-Goal:
+This can be done with a Cardiotogram (CTG).  A CTG uses ultrasound waves to capture various metrics of a fetus, including fetal heartbeat, fetal movement, and uterine contractions.  
+
+Additionally, the data gives a "health score" for each fetus to determine their risk level.  For this specific dataset, health levels are defined as follows:
+**1: Normal | 2: Suspect | 3: Pathological**
+
+In this case, the following questions looks to be answered: **Can the given CTG Metrics correctly classify is a given fetus is at high risk (Health Score of 2 or 3)?** 
+
+Ayres de Campos et al. (2000) SisPorto 2.0 A Program for Automated Analysis of Cardiotocograms. J Matern Fetal Med 5:311-318
+
+The data can be viewed here: https://drive.google.com/drive/u/1/folders/1AP13V0-5hTJb7Yuz2BjG6O9Ak_VTppIy
 
 ---
 
+## Data Dictionary
 
+Figure Out Sumn to do here later
 
+---
 
+## Data Preparation
 
+To begin the dataset needs to be cleaned of missing values, followed by assigning our predictor and response variables. After, the dataset is split into training/testing sets via random sampling.
+
+```{r echo=TRUE}
+fetalCSV <- read.csv("fetal_health.csv")
+fetalCSV <- na.omit(fetalCSV)
+
+# Changes Score to 2-Dimensional with 0= Normal and 1 = Needs Care (Suspect/Pathological)
+fetalCSV$Target <- ifelse(fetalCSV$fetal_health > 1, 1, 0)
+
+classX = model.matrix(~ . - fetal_health - Target - 1, data = fetalCSV)
+classY = fetalCSV$Target
+
+#Training/Testing Splits
+set.seed(1)
+
+train_indices = sample(1:nrow(classX), 0.7 * nrow(classX))
+
+trainX = classX[train_indices, ]
+trainY = classY[train_indices]
+
+testX  = classX[-train_indices, ]
+testY  = classY[-train_indices]
+```
+
+---
+
+## Running BART Model
+
+Now, the BART model can be run on the data.
+
+```{r, results='hide'}
+bart_model = bart2(trainX, trainY, testX, keepTrees = TRUE, verbose = FALSE)
+```
+
+FIND SOMETHING ELSE FOR HERE
+
+---
+
+ADD IN STUFF SHOWING BART'S METRICS, COMBINE THE PLOTS YOU HAVE WITH BABY EXAMPLE METRICS
+
+---
 
 
 
