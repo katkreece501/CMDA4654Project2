@@ -461,7 +461,6 @@ Jake to add:
 <!--Extra stuff included in template, keep for now as reference-->
 
 ---
-#### More info to add on this package, will likely add another slide for it
 ## The  **dbarts** Package
 
 ```{r}
@@ -489,8 +488,11 @@ What to know about dbarts:
 - you can change k (end-node prior) which controls how conservative the model is. A higher k makes the model more conservative and binary models are more sensitive to these changes
 - ntree/n.trees defaults to 200 for bart() and 75 for bart2())
 - ndpost/n.samples controls the number of posterior draws after the initial period
-- nskip/n.burn controls the number of initial MCMC iterations to discard to ensure the sampler has reached a stationar distribution
+- nskip/n.burn controls the number of initial MCMC iterations to discard to ensure the sampler has reached a stationary distribution
 
+## Built-in Visualization and Diagnostics
+- The **plot()** function generates a trace plot of $\sigma$ to check if the MCMC chain has converged as well as a "fitted vs. actual" plot showing the posterior intervals for f(x) (for classification problems, plot() only returns the performance plots since the standard deviation is constant)
+- varcount allows you to see which variables are used most frequently in tree splits to determine variable importance
 
 
 
@@ -518,6 +520,16 @@ reduced_fit <- bart2(isVersicolor ~ Sepal.Length + Sepal.Width,
 glm_fit <- glm(isVersicolor ~ Sepal.Length + Sepal.Width + Petal.Length + Petal.Width, 
                data = iris_class, family = binomial)
 ```
+
+---
+## Bart Visualizations
+```{r, echo = F}
+par(mfrow = c(1, 2))
+plot(fit_class, main = "Full Model")
+plot(reduced_fit, main = "Reduced Model")
+```
+
+### add analysis of the difference here
 
 ---
 ### Calculate Prediction Accuracies
