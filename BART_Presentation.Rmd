@@ -476,10 +476,22 @@ bart2 <- bart2(y ~ x, data = data)
 ```
 Use **bart2()**
 > bart() was the initial implementation while bart2 has more in depth defaults included
+> bart2() supports standard (y ~ x) syntax while bart() requires matrix inputs. Additionally, bart2() implements parallelization to four chains whereas bart() does not implement parallelization
 
 What to know about dbarts:
 - keepTrees is defaulted to false. When you want to make predictions on data you don't have, switch it to true. 
-- dbarts has a predict() function similar to other libraries. 
+- dbarts has a predict() function similar to other libraries that can be used to calculate probabilities 
+
+---
+
+## Important Parameters
+
+- you can change k (end-node prior) which controls how conservative the model is. A higher k makes the model more conservative and binary models are more sensitive to these changes
+- ntree/n.trees defaults to 200 for bart() and 75 for bart2())
+- ndpost/n.samples controls the number of posterior draws after the initial period
+- nskip/n.burn controls the number of initial MCMC iterations to discard to ensure the sampler has reached a stationar distribution
+
+
 
 
 ---
