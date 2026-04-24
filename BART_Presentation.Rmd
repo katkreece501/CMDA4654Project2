@@ -449,16 +449,132 @@ If any of the below are true...
 
 ---
 
-## To add or possibly add
+## BART for Classification - Problem Specification
 
-Jake to add:
+Although BART is typically used for regression, it can be modified some and used for classification. For simplicity sake, we can assume we are performing binary classification, so we have:
 
-- BART for classification
-- Developments in BART modeling since original paper
-- Common use cases of BART
-- BART R libraries (BART, dBART, differences between them)
+$$
+Y_i \in \{0,1\}
+$$
 
-<!--Extra stuff included in template, keep for now as reference-->
+This brings up an issue, as in typical BART, we have:
+
+$$
+Y_i=f(\mathbf{x_i})+\epsilon_i,\quad \epsilon_i\sim N(0,\sigma^2)
+$$
+Here, Y can be any real number, but in our case, we need Y to take on values of 0 or 1.
+
+---
+
+## BART for Classification - Latent Variable Setup
+
+To combat the previously mentioned problem, we introduce whats known as **latent** or unobserved variable:
+
+$$
+Z_i = f(\mathbf{x_i}) + \eta_i,\quad \eta_i\sim N(0,1)
+$$
+Then we further define:
+$$
+Y =
+\begin{cases}
+1, & \text{if } Z > 0 \\
+0, & \text{if } Z \le 0
+\end{cases}
+$$
+What does each piece mean?
+
+1. $f(\mathbf{x_i})$ is still using out typical BART setup, so its still building a flexible function from many small trees.
+2. $\eta_i$ is the latent random noise associated with our latent variable. We assume a standard normal distribution such that we can compute probabilities later on.
+3. $Y_i$ is our observed binary outcome.
+
+---
+
+## BART for Classification - Probability Classes
+
+At the current moment we have found out a way to transform our continuous hidden score into a binary outcome, but as our latent variable is random, we need a way to compute probabilities regarding its classification. We currently have
+
+$$
+Y_i = 1 \iff Z_i = f(\mathbf{x_i}) + \eta_i > 0
+$$
+Then, as these two events are equivalent then they must have the same probabilities, so:
+
+$$
+P(Y_i = 1 | x_i) = P(f(\mathbf{x_i}) + \eta_i > 0 |\mathbf{x_i} )
+$$
+Then, if we rearrange the inequality on the right side, then we get:
+
+$$
+P(Y_i = 1 | x_i) = P(\eta_i > -f(\mathbf{x_i}) |\mathbf{x_i} ) = P(\eta_i < f(\mathbf{x_i}) | \mathbf{x_i} )
+$$
+Consider that because $\eta_i \sim N(0,1)$ then this is simply equivalent to the area under the standard normal curve to the left of $x_i$. In other words the probability is simply the CDF value at that point:
+
+$$
+P(Y_i = 1 | x_i) = \Phi(f(\mathbf{x_i}))
+$$
+
+---
+
+## BART for Classification - How to Classify
+
+We get probability equal for the class of 1 equal to the CDF at that point, but how do we actually get a definitive classification? First, we can define the probability:
+
+$$
+p(x) = \Phi(f(\mathbf{x}))
+$$
+Then, we can assign our classification based of this probability as such:
+$$
+Y =
+\begin{cases}
+1, & \text{if } p(x) > 0.5 \\
+0, & \text{if } p(x) \le 0.5
+\end{cases}
+$$
+
+---
+
+## Common Use Cases of BART
+
+BART is commonly used if the relationship is nonlinear, indicators may interact, and we do not want to specify the form of the relationship like linear regression. The use cases for BART include:
+
+- Prediction for continuous outcomes (house prices, medical measurements, etc)
+
+- Classification via class probabilities (Disease or no disease, animal type, etc)
+
+- Casual inference (How much did a treatment effect a certain response variable?)
+  - BART is especially useful as it allows interactions among covariates, so we can model treatment effects across different combinations of covariates.
+
+---
+
+## BART R Libraries
+
+BART is typically carried out with two different R libraries: BART and dbarts
+
+.pull-left[
+BART
+
+- Broader BART modeling package that includes several different BART variants
+  - Regression, binary classification, multi-class classification, etc.
+  
+- More specialized functions that handle specific use cases, like "wbart()" for continuous regression and "pbart()" for binary outcomes.
+
+- Has specific support for multi-class classification via the "pbart()" function.
+
+- Use if you want a broader BART toolbox.
+  
+]
+
+.pull-right[
+dbarts
+
+- Cleaner and faster package for standard BART 
+
+- Typically used via the main function "bart()", so it has a simpler interface.
+
+- More centered around regression, not built for multi-class classification.
+
+- Overall, its more useful for standard regression and a simpler interface.
+
+]
 
 ---
 ## The  **dbarts** Package
