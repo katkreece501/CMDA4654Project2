@@ -900,17 +900,110 @@ cat("High Risk Fetus Accuracy:", hrAccuracy)
 
 ---
 
+## Establishins a Benchmark Model
 
+We used random forest as a comparison model to evaluate how well BART performs with this particular dataset.
 
+Random forest is a strong baseline because it: 
 
+- Handles nonlinear relationships
+- Captures interactions between variables
+- Is known for stable performance on classification problems
 
+```{r}
+library(randomForest)
 
+fetalCSV <- read.csv("fetal_health.csv")
+fetalCSV <- na.omit(fetalCSV)
 
+# Changes Score to 2-Dimensional with 0= Normal and 1 = Needs Care (Suspect/Pathological)
+fetalCSV$Target <- ifelse(fetalCSV$fetal_health > 1, 1, 0)
 
+set.seed(1)
+# 70% Training / 30% Testing
+train_indices = sample(1:nrow(fetalCSV), 0.7 * nrow(fetalCSV))
 
+train_df = fetalCSV[train_indices, ]
+test_df  = fetalCSV[-train_indices, ]
 
+rf_model = randomForest(
+  as.factor(Target) ~ baseline.value + accelerations + fetal_movement + 
+    light_decelerations + uterine_contractions + abnormal_short_term_variability,
+  data = train_df,
+  ntree = 500
+)
+```
 
+---
 
+## Generating Predictions
+
+```{r}
+rf_prob_preds = predict(rf_model, newdata = test_df, type = "prob")[,2]
+
+# Using the standard 0.5 threshold 
+rf_preds = ifelse(rf_prob_preds > 0.5, 1, 0)
+
+rf_errors <- data.frame(
+  Method = rep(c("Normal Fetuses", "High Risk Fetuses"), each = 2),
+  ErrorType = rep(c("Correctly Labeled", "Incorrectly Labeled"), 1),
+  Count = c(
+    sum(rf_preds == 0 & test_df$Target == 0), sum(rf_preds == 1 & test_df$Target == 0),
+    sum(rf_preds == 1 & test_df$Target == 1), sum(rf_preds == 0 & test_df$Target == 1)
+  )
+)
+rf_errors
+```
+
+---
+
+## Visualizing Random Forest Accuracy
+
+```{r}
+ggplot(rf_errors, aes(x = Method, y = Count, fill = ErrorType)) +
+  geom_bar(stat = "identity", position = "dodge", color = "black") + 
+  scale_fill_manual(values = c("Correctly Labeled" = "navy", "Incorrectly Labeled" = "darkred")) +
+  geom_text(aes(label = Count), position = position_dodge(width = 0.9), vjust = -0.5) +
+  labs(title = "Classification Mistakes", x = "", y = "Count") +
+  theme_bw()
+```
+
+---
+
+## Other Metrics
+
+```{r}
+rf_totalAccuracy = (sum(rf_preds == 0 & test_df$Target == 0) + 
+                      sum(rf_preds == 1 & test_df$Target == 1)) / length(test_df$Target)
+cat("Overall Model Accuracy:", rf_totalAccuracy)
+```
+
+```{r}
+rf_normalAccuracy = sum(rf_preds == 0 & test_df$Target == 0) / length(which(test_df$Target == 0))
+cat("Normal Fetus Accuracy:", rf_normalAccuracy)
+
+```
+
+```{r}
+rf_hrAccuracy = sum(rf_preds == 1 & test_df$Target == 1) / length(which(test_df$Target == 1))
+cat("High Risk Fetus Accuracy:", rf_hrAccuracy)
+
+```
+
+---
+
+## BART vs Random Forest Comparison
+
+```{r}
+comparison <- data.frame(
+  Model = c("BART", "Random Forest"),
+  Overall_Accuracy = c(totalAccuracy, rf_totalAccuracy),
+  Normal_Accuracy = c(normalAccuracy, rf_normalAccuracy),
+  HighRisk_Accuracy = c(hrAccuracy, rf_hrAccuracy)
+)
+
+comparison
+```
 
 ---
 exclude: true
