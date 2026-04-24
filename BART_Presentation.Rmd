@@ -1005,6 +1005,8 @@ comparison <- data.frame(
 comparison
 ```
 
+Random Forest is the better model for this dataset, suggesting the underlying relationships are not complex. Although BART is designed to capture complex linear structure, the higher performance of Random Forest suggests the data is relatively stable and does not require as much model flexibility.
+
 ---
 exclude: true
 ## Typography
