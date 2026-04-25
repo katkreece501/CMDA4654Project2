@@ -153,3 +153,190 @@ It maintains a competitive test error
 It generalizes better to new data
 
 ---
+
+## Baby Example: BART vs LOESS Regression
+
+We compare two regression methods:
+
+- **LOESS**
+- **BART (Bayesian Additive Regression Trees)**
+
+Goal:
+
+- Predict motorcycle acceleration from time
+- Compare training and testing error
+- Connect BART to a method already used in class
+
+---
+
+## Step 1: Train/Test Split
+
+```{r echo=TRUE, results='hide'}
+# Load the packages we need
+library(MASS)
+library(BART)
+
+# Set a seed so results are reproducible
+set.seed(123)
+
+# Load the mcycle dataset
+data(mcycle)
+
+# Rename variables for clarity
+x <- mcycle$times
+y <- mcycle$accel
+
+# Count the total number of observations
+n <- length(y)
+
+# Randomly choose about 70% of the observations for training
+train_idx <- sample(1:n, size = floor(0.7 * n))
+
+# Create training and testing sets
+x_train <- x[train_idx]
+y_train <- y[train_idx]
+
+x_test <- x[-train_idx]
+y_test <- y[-train_idx]
+
+# BART needs predictor variables to be matrices
+x_train_bart <- as.matrix(x_train)
+x_test_bart  <- as.matrix(x_test)
+```
+
+---
+Step 2: Fit LOESS Models
+
+```{r}
+# Define the spans we want to compare
+spans <- c(0.25, 0.35, 0.50, 0.65, 0.75)
+
+# Create vectors to store LOESS training and testing MSE
+loess_train_mse <- numeric(length(spans))
+loess_test_mse  <- numeric(length(spans))
+
+# Loop through each span value
+for (i in 1:length(spans)) {
+  
+  # Fit LOESS using the training data
+  loess_fit <- loess(
+    y_train ~ x_train,
+    span = spans[i],
+    degree = 1
+  )
+  
+  # Predict on the training data
+  loess_train_pred <- predict(
+    loess_fit,
+    newdata = data.frame(x_train = x_train)
+  )
+  
+  # Predict on the testing data
+  loess_test_pred <- predict(
+    loess_fit,
+    newdata = data.frame(x_train = x_test)
+  )
+  
+  # Compute training and testing MSE
+  loess_train_mse[i] <- mean((y_train - loess_train_pred)^2, na.rm = TRUE)
+  loess_test_mse[i]  <- mean((y_test - loess_test_pred)^2, na.rm = TRUE)
+}
+```
+
+
+---
+
+Step 3: Fit BART Model
+```{r}
+# Fit the BART model
+bart_model <- wbart(
+  x.train = x_train_bart,
+  y.train = y_train,
+  x.test  = x_test_bart,
+  ndpost  = 200
+)
+
+# Extract posterior prediction matrices
+bart_train_mat <- bart_model$yhat.train
+bart_test_mat  <- bart_model$yhat.test
+
+# Make sure rows are posterior draws and columns are observations
+if (ncol(bart_train_mat) == length(y_train)) {
+  bart_train_draws <- bart_train_mat
+} else {
+  bart_train_draws <- t(bart_train_mat)
+}
+
+if (ncol(bart_test_mat) == length(y_test)) {
+  bart_test_draws <- bart_test_mat
+} else {
+  bart_test_draws <- t(bart_test_mat)
+}
+
+# Count the number of posterior draws
+n_draws <- nrow(bart_train_draws)
+
+# Create vectors to store BART training and testing MSE
+bart_train_mse <- numeric(n_draws)
+bart_test_mse  <- numeric(n_draws)
+
+# Compute MSE for each posterior draw
+for (i in 1:n_draws) {
+  bart_train_mse[i] <- mean((y_train - bart_train_draws[i, ])^2)
+  bart_test_mse[i]  <- mean((y_test - bart_test_draws[i, ])^2)
+}
+
+# Smooth the BART errors using cumulative averages
+bart_train_mse_smooth <- cumsum(bart_train_mse) / seq_along(bart_train_mse)
+bart_test_mse_smooth  <- cumsum(bart_test_mse) / seq_along(bart_test_mse)
+```
+---
+Step 4: LOESS Error Comparison
+```{r}
+plot(spans, loess_train_mse,
+     type = "b",
+     pch = 19,
+     lwd = 2,
+     ylim = range(c(loess_train_mse, loess_test_mse), na.rm = TRUE),
+     xlab = "LOESS Span",
+     ylab = "Mean Squared Error",
+     main = "LOESS Train and Test Error")
+
+lines(spans, loess_test_mse,
+      type = "b",
+      pch = 19,
+      lty = 2,
+      lwd = 2)
+
+legend("topright",
+       legend = c("Train MSE", "Test MSE"),
+       lty = c(1, 2),
+       pch = c(19, 19),
+       lwd = 2)
+```
+LOESS depends strongly on the span value. Smaller spans allow the curve to follow the training data more closely, which can reduce training error but may increase overfitting. Larger spans produce smoother curves, but if the span is too large, the model may oversmooth and miss important patterns in the data.
+
+---
+
+Step 5: BART Error Comparison
+
+```{r}
+
+plot(bart_train_mse_smooth,
+     type = "l",
+     lwd = 2,
+     ylim = range(c(bart_train_mse_smooth, bart_test_mse_smooth)),
+     xlab = "Posterior Draw",
+     ylab = "Mean Squared Error",
+     main = "BART Train and Test Error")
+
+lines(bart_test_mse_smooth,
+      lty = 2,
+      lwd = 2)
+
+legend("topright",
+       legend = c("Train MSE", "Test MSE"),
+       lty = c(1, 2),
+       lwd = 2)
+```
+

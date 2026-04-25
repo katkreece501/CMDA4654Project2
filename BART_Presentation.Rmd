@@ -755,173 +755,309 @@ The full bart model shows around 98% accuracy and position. This makes sense giv
 
 ---
 
+## BART vs LOESS: Regression Example
+We use the `mcycle` dataset to predict **acceleration** using **time**. We are going to do this using BART as a tree-based regression method versus a LOESS regression which as discussed  in our class focuses on smoothing.
 
-## Baby Example: BART vs Boosting (mtcars)
-
-We compare two tree-based methods:
-- **Boosting (GBM)**
-- **BART (Bayesian Additive Regression Trees)**
-
-Goal:
-- Predict mpg and compare training vs testing error
-
-## Step 1: Train/Test Split
-
-```{r  echo=TRUE, results='hide'}
-## Step 1: Train/Test Split {.smaller}
+How our models are fit.
+- Both BART and LOESS are fit with a 70% split for training data and 30% testing.
+- LOESS is fit using different span values with span chosen using test MSE
+- BART is fit using posterior draws from many trees and averaging
+```{r, echo=FALSE, results='hide'}
+library(MASS)
+library(dbarts)
+data(mcycle)
 ```
+```{r}
+set.seed(123)
+x <- mcycle$times
+y <- mcycle$accel
+n <- length(y)
+# Randomly choose 70% of the observations for training
+train_idx <- sample(1:n, size = floor(0.7 * n))
+x_train <- x[train_idx]
+y_train <- y[train_idx]
+x_test <- x[-train_idx]
+y_test <- y[-train_idx]
+# matrix form predictors for dbarts 
+x_train_bart <- as.matrix(x_train)
+x_test_bart  <- as.matrix(x_test)
+```
+```{r, echo=TRUE, results='hide'}
+spans <- c(0.25, 0.35, 0.50, 0.65, 0.75)
+
+# Vectors to store LOESS train/test errors
+loess_train_mse <- numeric(length(spans))
+loess_test_mse  <- numeric(length(spans))
+# Fit one LOESS model for each span value
+for (i in 1:length(spans)) {
+  # Fit LOESS model using training data
+  loess_fit <- loess(y_train ~ x_train,span = spans[i],degree = 1
+  )
+    
+  # Predict acceleration for training data
+  loess_train_pred <- predict(
+    loess_fit,
+    newdata = data.frame(x_train = x_train)
+  )
+  
+  # Predict acceleration for testing data
+  loess_test_pred <- predict(
+    loess_fit,
+    newdata = data.frame(x_train = x_test)
+  )
+  
+  # Compute training MSE for this span
+  loess_train_mse[i] <- mean(
+    (y_train - loess_train_pred)^2,
+    na.rm = TRUE
+  )
+  
+  # Compute testing MSE for this span
+  loess_test_mse[i] <- mean(
+    (y_test - loess_test_pred)^2,
+    na.rm = TRUE
+  )
+}
+
+
+# Find the LOESS span with the lowest test error
+best_loess_index <- which.min(loess_test_mse)
+
+# Save the best LOESS train and test error
+loess_best_train <- loess_train_mse[best_loess_index]
+loess_best_test  <- loess_test_mse[best_loess_index]
+
+```
+```{r}
+# Fit BART using dbarts
+# ntree  = number of trees
+# ndpost = number of posterior draws saved
+# nskip  = number of burn-in draws skipped
+bart_model <- bart( x.train = x_train_bart, y.train = y_train, x.test  = x_test_bart,ntree = 100, ndpost = 500, nskip = 200
+)
+
+```
+
+---
+### Calculate Prediction Accuracies
+```{r, echo=TRUE, results='hide'}
+# Extract posterior predictions for train and test sets
+bart_train_draws <- bart_model$yhat.train
+bart_test_draws  <- bart_model$yhat.test
+# Make sure rows are posterior draws and columns are observations
+if (ncol(bart_train_draws) != length(y_train)) {
+  bart_train_draws <- t(bart_train_draws)
+}
+if (ncol(bart_test_draws) != length(y_test)) {
+  bart_test_draws <- t(bart_test_draws)
+}
+# Number of posterior draws
+n_draws <- nrow(bart_train_draws)
+# Vectors to store dbarts train/test MSE for each posterior draw
+bart_train_mse <- numeric(n_draws)
+bart_test_mse  <- numeric(n_draws)
+# Compute MSE for each posterior draw
+for (i in 1:n_draws) {
+  # Training MSE for posterior draw i
+  bart_train_mse[i] <- mean((y_train - bart_train_draws[i, ])^2)
+  # Testing MSE for posterior draw i
+  bart_test_mse[i] <- mean((y_test - bart_test_draws[i, ])^2)
+}
+```
+---
+
+### Compare the accuracies
 
 ```{r, echo=TRUE, results='hide'}
-# Load the packages we need:
-# BART for Bayesian Additive Regression Trees
-# gbm for boosting
-#install.packages("BART")
-library(BART)
-#install.packages("gbm")
-library(gbm)
-
-# Set a seed so the random split is reproducible
-set.seed(123)
-
-# Load the mtcars dataset
-data(mtcars)
-
-# Count the total number of observations
-n <- nrow(mtcars)
-
-# Randomly choose about 70% of the rows for training
-train_idx <- sample(1:n, size = floor(0.7 * n))
-
-# Create training and testing sets
-train <- mtcars[train_idx, ]
-test  <- mtcars[-train_idx, ]
-
-# Build predictor matrices for BART
-# We remove mpg because that is the response variable
-x_train <- as.matrix(train[, -1])
-y_train <- train$mpg
-
-x_test <- as.matrix(test[, -1])
-y_test <- test$mpg
-
+# Smooth the dbarts errors using cumulative averages
+bart_train_mse_smooth <- cumsum(bart_train_mse)/seq_along(bart_train_mse)
+bart_test_mse_smooth  <- cumsum(bart_test_mse) / seq_along(bart_test_mse)
+# Average dbarts train and test error across posterior draws
+bart_final_train <- mean(bart_train_mse)
+bart_final_test  <- mean(bart_test_mse)
 ```
----
+BART error is shown as the average test MSE across posterior draws, while LOESS is shown as a constant line using its best span. This allows us to compare BART’s convergence to LOESS’s best performance.
 
-## Step 2: Boosting and BART Model
-```{r  echo=TRUE, results='hide'}
-# Set the number of boosting iterations (trees)
-n_trees <- 200
+```{r, eval=T, echo=F, fig.width=4, fig.height=3.5,  out.width="30%"}
 
-# Fit the boosting model
-# This is a regression problem, so distribution = "gaussian"
-boost_model <- gbm(
-  mpg ~ .,
-  data = train,
-  distribution = "gaussian",
-  n.trees = n_trees,
-  interaction.depth = 2,
-  shrinkage = 0.05,
-  bag.fraction = 1.0,
-  n.minobsinnode = 2,
-  verbose = FALSE
-)
-
-# Create vectors to store training and testing error at each tree
-boost_train_err <- numeric(n_trees)
-boost_test_err  <- numeric(n_trees)
-
-# Loop through the trees one at a time
-# At each step, compute train and test MSE
-for (i in 1:n_trees) {
-  pred_train <- predict(boost_model, train, n.trees = i)
-  pred_test  <- predict(boost_model, test,  n.trees = i)
-
-  boost_train_err[i] <- mean((y_train - pred_train)^2)
-  boost_test_err[i]  <- mean((y_test - pred_test)^2)
-}
-
-# Fit the BART model
-# x.test is included so BART also produces test predictions
-bart_model <- wbart(
-  x.train = x_train,
-  y.train = y_train,
-  x.test  = x_test,
-  ndpost  = 200
-)
-
-# Extract posterior prediction matrices
-bart_train_mat <- bart_model$yhat.train
-bart_test_mat  <- bart_model$yhat.test
-
-# Make sure the matrices are oriented correctly:
-# rows = posterior draws, columns = observations
-if (ncol(bart_train_mat) == length(y_train)) {
-  bart_train_draws <- bart_train_mat
-} else {
-  bart_train_draws <- t(bart_train_mat)
-}
-
-if (ncol(bart_test_mat) == length(y_test)) {
-  bart_test_draws <- bart_test_mat
-} else {
-  bart_test_draws <- t(bart_test_mat)
-}
-
-# Count the number of posterior draws
-n_draws <- nrow(bart_train_draws)
-
-# Create vectors to store BART training and testing error
-bart_train_err <- numeric(n_draws)
-bart_test_err  <- numeric(n_draws)
-
-# For each posterior draw, compute the train and test MSE
-for (i in 1:n_draws) {
-  bart_train_err[i] <- mean((y_train - bart_train_draws[i, ])^2)
-  bart_test_err[i]  <- mean((y_test - bart_test_draws[i, ])^2)
-}
-
-# Smooth the BART error curves using cumulative averages
-# This makes the Bayesian draws easier to compare visually
-bart_train_err_smooth <- cumsum(bart_train_err) / seq_along(bart_train_err)
-bart_test_err_smooth  <- cumsum(bart_test_err) / seq_along(bart_test_err)
-```
----
-
-- will likely follow similar format to the classification example
-- making sure to follow guidelines in rubric and cover all our bases
-=======
-## Step 3: Error Comparison
-```{r, echo=FALSE,  fig.width=7, fig.height=3.5,  out.width="50%"}
-
-plot(boost_train_err, type = "l",
-     col = "blue", lwd = 2,
-     ylim = range(c(boost_train_err, boost_test_err,
-                    bart_train_err_smooth, bart_test_err_smooth)),
-     xlab = "Iterations / Draws",
+# This plot shows how LOESS error changes as span changes
+plot(spans, loess_train_mse,
+     type = "b",
+     pch = 19,
+     col = "blue",
+     lwd = 2,
+     ylim = range(c(loess_train_mse, loess_test_mse), na.rm = TRUE),
+     xlab = "LOESS Span",
      ylab = "Mean Squared Error",
-     main = "BART vs Boosting: Train and Test Error")
+     main = "LOESS Train and Test Error")
 
-lines(boost_test_err, col = "blue", lty = 2, lwd = 2)
-lines(bart_train_err_smooth, col = "orange", lwd = 2)
-lines(bart_test_err_smooth, col = "orange", lty = 2, lwd = 2)
+lines(spans, loess_test_mse,
+      type = "b",
+      pch = 19,
+      col = "red",
+      lty = 2,
+      lwd = 2)
 
 legend("topright",
-       legend = c("Boosting Train", "Boosting Test",
-                  "BART Train", "BART Test"),
-       col = c("blue", "blue", "orange", "orange"),
+       legend = c("LOESS Train MSE", "LOESS Test MSE"),
+       col = c("blue", "red"),
+       lty = c(1, 2),
+       pch = c(19, 19),
+       lwd = 2,
+       cex = 0.8,  
+      bty = "n" )
+
+
+
+# This plot shows how dbarts error changes across posterior draws
+plot(bart_train_mse_smooth,
+     type = "l",
+     col = "darkgreen",
+     lwd = 2,
+     ylim = range(c(bart_train_mse_smooth, bart_test_mse_smooth)),
+     xlab = "Posterior Draw",
+     ylab = "Mean Squared Error",
+     main = "BART Train and Test Error")
+
+lines(bart_test_mse_smooth,
+      col = "orange",
+      lty = 2,
+      lwd = 2)
+
+legend("topright",
+       legend = c("BART Train MSE", "BART Test MSE"),
+       col = c("darkgreen", "orange"),
+       lty = c(1, 2),
+       lwd = 2,
+       cex = 0.8,  
+      bty = "n" )
+
+
+# LOESS gives one best train/test error value after choosing the best span.
+# To compare it with dbarts across posterior draws, repeat the LOESS error
+# values as horizontal reference lines.
+loess_train_line <- rep(loess_best_train, n_draws)
+loess_test_line  <- rep(loess_best_test, n_draws)
+
+# Plot dbarts train error first
+plot(bart_train_mse_smooth,
+     type = "l",
+     col = "darkgreen",
+     lwd = 2,
+     ylim = range(c(bart_train_mse_smooth,
+                    bart_test_mse_smooth,
+                    loess_train_line,
+                    loess_test_line)),
+     xlab = "Posterior Draw",
+     ylab = "Mean Squared Error",
+     main = "LOESS vs BART: Train and Test Error")
+
+# Add dbarts test error
+lines(bart_test_mse_smooth,
+      col = "orange",
+      lwd = 2,
+      lty = 2)
+
+# Add LOESS train error as a horizontal line
+lines(loess_train_line,
+      col = "blue",
+      lwd = 2)
+
+# Add LOESS test error as a horizontal dashed line
+lines(loess_test_line,
+      col = "red",
+      lwd = 2,
+      lty = 2)
+
+legend("topright",
+       legend = c("BART Train", "BART Test", "LOESS Train best span", "LOESS Test best span"),
+       col = c("darkgreen", "orange", "blue", "red"),
        lty = c(1, 2, 1, 2),
-       lwd = 2)
-```       
+       lwd = 2,
+       cex = 0.8,  
+      bty = "n" )
 
-In boosting, the training error decreases rapidly toward zero, while the test error stops improving, indicating overfitting. In contrast, BART maintains similar training and testing error levels, and the errors stabilize after early iterations, suggesting better generalization.
 
-- **BART is less aggressive than boosting:**
-- It does not drive training error to zero
-- It maintains a competitive test error
-- It generalizes better to new data
-
+```
 ---
+## Regression: Quantitative Results
+```{r, eval=TRUE, echo=FALSE, results='asis', fig.width=4, fig.height=3,  out.width="80%"}
+cat("<div style='margin-top: -45px; margin-bottom: -60px;'>")
 
+
+cat('
+<div style="display: flex; gap: 1bart_train_mse[i] <- mean((y_train - bart_train_draws[i, ])^2)
+0px;">
+<div style="width: 50%;">
+')
+
+error_values <- c(
+  loess_best_train,
+  loess_best_test,
+  bart_final_train,
+  bart_final_test
+)
+
+bar_colors <- c("blue", "red", "darkgreen", "orange")
+
+barplot(error_values,
+        names.arg = c("LOESS\nTrain", "LOESS\nTest",
+                      "dbarts\nTrain", "dbarts\nTest"),
+        col = bar_colors,
+        ylab = "MSE",
+        main = "Error Comparison",
+        ylim = c(0, max(error_values) * 1.25),
+        cex.names = 0.75,
+        cex.main = 0.9,
+        cex.lab = 0.8,
+        cex.axis = 0.75)
+
+legend("topright",
+       legend = c("LOESS Train", "LOESS Test",
+                  "dbarts Train", "dbarts Test"),
+       fill = bar_colors,
+       cex = 0.6,
+       bty = "n")
+
+cat('
+</div>
+<div style="width: 45%; font-size: 11px; display: flex; justify-content: center; align-items: center;">
+')
+
+comparison_df <- data.frame(
+  Metric = c("Tuning / Draws", "Training MSE", "Testing MSE"),
+  LOESS = c(
+    paste("Best span =", spans[best_loess_index]),
+    round(loess_best_train, 4),
+    round(loess_best_test, 4)
+  ),
+  dbarts = c(
+    paste("Posterior draws =", n_draws),
+    round(bart_final_train, 4),
+    round(bart_final_test, 4)
+  )
+)
+
+print(
+  knitr::kable(
+    comparison_df,
+    caption = "LOESS vs BART Regression Error Comparison",
+    align = "c"
+  )
+)
+
+cat('
+</div>
+</div>
+')
+
+cat("</div>")
+
+```
+**In this example**:
+
+LOESS achieved a **lower test error** than BART when predicting acceleration from time in the mcycle dataset. This result is expected because the relationship in the data is smooth and one-dimensional, which aligns well with the assumptions behind LOESS. LOESS is specifically designed to capture local trends in such settings, making it highly effective here. In contrast, BART is a more `flexible, tree-based method` that can model complex and high-dimensional relationships, but that flexibility is not necessary for this dataset and can introduce additional variance. This comparison highlights an important idea: **more complex models do not always lead to better performance**, and choosing an appropriate method depends heavily on the structure of the data.
+---
 ## Main Example: Diabetes Dataset
 
 The National Institute of Diabetes and Digestive and Kidney Diseases is constantly studying factors that may make a person more susceptible to diabetes.  Finding factors can help both prevent future cases of diabetes and mitigate implications arising from being Diabetic.

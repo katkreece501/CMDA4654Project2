@@ -41,6 +41,7 @@ library(ggplot2)
 theme_set(theme_bw())
 ```
 
+<!-- 
 ## Central Problem
 
 Suppose we want to make inference for some continuous $Y$ that depends on the unknown function
@@ -52,10 +53,12 @@ where $\mathbf{x}=(x_1,x_2,...,x_p)$. Suppose we also want to account for possib
 
 Traditional Regression:
 - Search for a polynomial that fits to the data without overfitting
-- Possibly need to do other techniques (LOESS, splines, etc.), and do related cross-validation
+- Possibly need to do other techniques, and do related cross-validation
 - Is there a better way?
 
 ---
+
+--->
 
 ## Sum Of Trees Model
 
@@ -204,13 +207,13 @@ For higher values of $m$ (more trees), the prior on individual parameters tighte
 
 ## Prior on the Error Variance
 
-The prior on $\sigma^2$ is given by the inverse chi-squared distribution $\frac{\lambda \nu}{\chi^2}$, where $\nu$ is the degrees of freedom for the prior and $\lambda$ based a "rough data-based overestimate" $\hat{\sigma}$ of $\sigma$, either the sample standard deviation or the square root of the MSE from an OLS fit (Note the inherent assumption that BART will model the data better than OLS). 
+The prior on $\sigma^2$ is given by the inverse chi-squared distribution $\frac{\lambda \nu}{\chi^2}$, where $\nu$ is the degrees of freedom for the prior and $\lambda$ based a "rough data-based overestimate" $\hat{\sigma}$ of $\sigma$, either the sample standard deviation or the square root of the MSE (RMSE) from an OLS fit (Note the inherent assumption that BART will model the data better than OLS). 
 
 Chimpan et al. recommend picking $\nu$ between 3 and 10, inclusive, and picking $\lambda$ such that $\hat{\sigma}$ is located at the $q$th quantile of the prior for some selected $q$; they recommend 0.75 for a conservative estimate, 0.99 for an aggressive estimate, and 0.9 as the default.
 
 <center><img src="./error_var_prior.png" alt="Variance Priors" height="225px" /></center>
 
-.footnote[From BART: Bayesian additive regression trees, Chipman et al.]
+.footnote[From _BART: Bayesian additive regression trees_, Chipman et al.]
 
 
 ---
@@ -247,7 +250,7 @@ Instead of drawing from the full, true posterior, BART use a _Gibbs sampler_, an
 \]
 </div>
 
-For each iteration, we first draw the set $(T_j, M_j)$ for $j=1,\dots,m$ from the distribution of all other trees and associated terminal node parameters, $(T_{(j)}, M_{(j)}$, the error $\sigma$, and the data $y$, then draw $\sigma$ from the distribution of all the trees and the data.
+For each iteration, we first draw the set $(T_j, M_j)$ for $j=1,\dots,m$ from the distribution of all other trees and associated terminal node parameters, $(T_{(j)}, M_{(j)})$, the error $\sigma$, and the data $y$, then draw $\sigma$ from the distribution of all the trees and the data.
 
 Note that $(T_j, M_j)$ only depends on the data and the other $m-1$ trees through the residual formula:
 
@@ -292,13 +295,13 @@ The probability that $T_j^*$ is accepted is given by the Metropolis–Hastings r
 \]
 </div>
 
-where $\frac{q(T_j^*,T_j)}{q(T_j,T_j^*)}$ is ratio of the probability of how $T_j$ moves to $T_j^*$ to the probability of how $T_j^*$ moves to $T_j$, $\frac{P(\mathbf{R}_j\mid \mathbf{x},T_j^*,M_j)}{P(\mathbf{R}_j\mid \mathbf{x},T_j,M_j)}$ is the likelihood ratio of $T_j^*$ to that of $T_j$, and $\frac{P(T_j^*)}{P(T_j)}$ is the probability of $T_j^*$ to that of $T_j$. The exact formulas used in these calculations vary based on the chosen move, and have been omitted for sake of space.
+where $\frac{q(T_j^*,T_j)}{q(T_j,T_j^*)}$ is ratio of the probability of how $T_j$ moves to $T_j^*$ to the probability of how $T_j^*$ moves to $T_j$, $\frac{P(\mathbf{R}_j\mid \mathbf{x},T_j^*,M_j)}{P(\mathbf{R}_j\mid \mathbf{x},T_j,M_j)}$ is the likelihood ratio of $T_j^*$ to that of $T_j$, and $\frac{P(T_j^*)}{P(T_j)}$ is the probability of $T_j^*$ to that of $T_j$. The exact formulas used in these calculations depend both the priors and the chosen move, and have been omitted for sake of space.
 
 If $T_j^*$ is accepted, than the structure of $T_j$ changes to that of $T_j^*$; otherwise, $T_j$ retains the same structure. Whatever the outcome, we then sample for $M_j$, drawing each $u_{ji}$ from the normal distribution
 
 <div>
 \[
-N\left(\left(\sigma_\mu^2\sum r_{ji}\right)/(n_i\sigma_\mu^2+\sigma^2),\,\sigma^2\sigma_\mu^2 /[n_i\sigma_\mu^2+\sigma^2]\right)
+\alpha(T_j, T_j^*)= N\left(\left(\sigma_\mu^2\sum r_{ji}\right)/(n_i\sigma_\mu^2+\sigma^2),\,\sigma^2\sigma_\mu^2 /[n_i\sigma_\mu^2+\sigma^2]\right)
 \]
 </div>
 
@@ -315,134 +318,388 @@ where $r_{ji}$ are the elements in $\mathbf{R}_j$ corresponding to $\mu_{ji}$ an
 .pull-right[
 1. Calculate $\mathbf{R}_3=\mathbf{y}-\sum_{k\ne 3}g(\mathbf{x},T_k,M_k)$
 2. Randomly select grow as the new move for $T_3^*$
-3. Calculate probability $T_3^*$ is selected
+3. Calculate probability $\alpha(T_3, T_3^*)$
 4. $T_3^*$ is selected, and replaces $T_3$
 5. $\mu_{31}^{(2)}$, $\mu_{32}^{(2)}$, and $\mu_{33}^{(2)}$ are drawn
 
 Note:
 - $\mathbf{R}_3$ is calculated with Trees 1 and 2 from iteration 2 and Tree 4 from iteration 1
 - Even if $T_3^*$ hadn't been selected, $M_3$ still would have been drawn for; the trees are always changing, even if the structure stays the same
-- An early iteration such as this one would likely be part of the "burn-in" iterations, and would not be included in the final posterior that is used in predictions
+- A rejected modification isn't a rejected _iteration_
+
+Example adapted from _Bayesian additive regression trees and the General BART model_, Tan YV, Roy J
 ]
-
-
 
 ---
 
-## Building Posterior We actually use
+## Building the Posterior (that we actually use)
 
+To build the posterior, we run the following algorithm for $B+K$ iterations, of which $B$ are burn-in iterations and are $K$ kept iterations:
+
+1. For $j=1,\dots,m$:
+  1. Compute $\mathbf{R}_j=\mathbf{y}-\sum_{k\ne j}g(\mathbf{x},T_k,M_k)$
+  2. Randomly choose a possible modification $T_j^*$
+  3. Compute $\alpha(T_j, T_j^*)$
+  4. Accept $T_j^*$ with probability $\alpha(T_j, T_j^*)$
+  5. Draw for $M_j$
+2. Draw for $\sigma$
+3. If not a burn-in iteration, store $((T_1,M_1),\dots,(T_m,M_m),\sigma)$
+
+Assuming we've chosen a suitable $K$, the sequence of iterations can be regarded as a size-$K$ sample from the true posterior. 
+
+Burn-in iterations are only used to start the MCMC process, and allow the sampler to reach the true posterior region. BART is often initialized with $m$ stumps, with $\mu_{j1}=\frac{\bar{Y}}{m}$.
+
+---
+
+To predict for a particular $\mathbf{x}^*$, we pass $\mathbf{x}^*$ into each of the $K$ iterations and take the average of all their responses:
+
+<div>
+\[
+Y^*=\frac{1}{K}\sum_{k=1}^Kf_k^*(\mathbf{x}^*)
+\]
+</div>
+
+where $f_K^*(\cdot)$ is the $K$th kept iteration, functioning as a single possible sum-of-trees model on the set of $m$ trees and associated terminal node parameters $(T_j^*,M_j^*)$
+
+<div>
+\[
+f^*(\cdot)=\sum_{j=1}^mg(\cdot,T_j^*,M_j^*)
+\]
+</div>
+
+
+The median of the responses may also be used. To measure uncertainty, $1-\alpha$ posterior intervals can be calculated over the whole distribution of $f_k^*(\mathbf{x}^*)$ values by taking the interval between the $\frac{\alpha}{2}$ and $1-\frac{\alpha}{2}$ quantiles.
 
 ---
 
 ## Choosing Hyperparameters
 
-There are two recommended methods for choosing the hyperparameters $\alpha$, $\beta$ ($T_j$ prior), $k$ ($\mu_{ji}$ prior), $\nu$, $q$ ($\sigma^2$ prior), and $m$:
+There are two recommended methods for choosing the hyperparameters $\alpha$, $\beta$ ($T_j$ prior), $k$ ($\mu_{ji}$ prior), $\nu$, $q$ ($\sigma^2$ prior), $m$, $B$, $K$, and probabilities of each possible tree modification move:
 
-1. Cross validation from reasonable values
+1. $k$-fold cross validation from reasonable values
 
-2. Use recommended defaults of $\alpha = 0.95$, $\beta=2$, $k=2$, $\nu=3$, $q=0.90$, and $m = 200$
+2. Use recommended defaults of $\alpha = 0.95$, $\beta=2$, $k=2$, $\nu=3$, $q=0.90$, $m = 200$, $P(\text{grow})=P(\text{prune})=0.25$, $P(\text{change split condition})=0.40$, and $P(\text{swap parent and child})=0.10$
+  - For $B$ and $K$, the original paper variously uses $B = 200$ & $K = 1000$, $B = 1000$ & $K=5000$, and $B=1000$ & $K=3000$ for different experiments
 
-We'll show later that using the recommended default hyperparameters achieves similar results as for cross-validation. 
+3. A mix of cross validation and pre-selected defaults
+
+Using default parameters gives similar performance to other commonly used machine learning algorithms, but cross-validation for at least some parameters gives BART a noticeably better performance (particularly for large numbers of parameters).
 
 ---
 
-## To add or possibly add
+.pull-left[
+![](./BART_comparison.png)
+]
 
-To add:
+.pull-right[
+![](./BART_comparison_table.png)
+]
 
-- Monte Carlo Markov Chain process, explained by going through an iteration for a single tree; include Gibbs sampler, calculating residuals, Metropolis-Hastings suggestion for tree updates
-- Output from BART: posterior distribution (how its generated), posterior intervals
-- Common Default Parameter choices, show evidence of why these are good
-- Choosing your own parameters, and how you would go about doing so
-- Limitations (high computational time, difficultly with large sets of parameters, lack of power to find which variables have predictive power)
-- Common Use cases
-- When would you want to use BART vs when you wouldn't want to use it
+Results are from comparing BART with default parameters ($B=200$, $K=1000$), BART with 5-fold cross validation for $k$, $\nu$, $q$, and $m$, along with selected other methods with 5-fold cross-validation. 42 different data sets were used, and RMSE measured on testing set predictions.
 
-May add:
+While BART with cross validation has the best results, BART with default parameters is comparable or better than the other methods.
 
-- Example of tree used for regression (diagram)
-- Modifications to BART algorithm that other researchers have done since the BART was first introduced (this would be just a list, not in depth at ALL)
+.footnote[From _BART: Bayesian additive regression trees_, Chipman et al.]
+---
 
-Assuming everything takes 1 slide, thats 13 slides to add, plus 2 may add. Again, not accounting for any of my bullets that we brake up into multiple slides or anything else that we add
-<!--Extra stuff included in template, keep for now as reference-->
+.pull-left[
+![](./BART_p_comp.png)
+]
+
+.pull-right[
+![](./BART_p_comp_table.png)
+]
+
+Results are from comparing BART with default parameters ($B=1000$, $K=3000$), BART with 5-fold cross validation for $k$, $\nu$, $q$, and $m$, along with selected other methods with 5-fold cross-validation. Simulated data was generated from a true function that only depended on 5 predictors, but with $p$ included in the data set. 
+
+BART with cross validation maintains consistently good performance across tested values of $p$. However, BART with default parameters declines from being the best method for $p=10$ to being one of the worst for $p=1000$. 
+This is one of the major weaknesses of BART; the others are that it assumes that variance is constant for all $Y$ data, and its computationally expensive with the number of iterations and trees you have to store.
+
+.footnote[From _BART: Bayesian additive regression trees_, Chipman et al.]
+---
+
+## When (and when not) to use BART
+
+.pull-left[
+If all of the below are true...
+
+- Your data has non-linear and interaction effects
+- Your data doesn't have a large amount of possible predictors
+- Your variance is near-uniform
+- You want to do minimal or no cross validation
+- You want to easily quantify uncertainty
+- You have at least a basic understanding of Bayesian statistics
+
+...BART is probably a good method to try
+
+]
+
+.pull-right[
+If any of the below are true...
+- Your data has a clear linear or quadratic fit
+- Your data has a very large number of possible predictors
+- Your data has non-constant variance
+- You want a resulting smooth curve
+- You really care about execution time (i.e., seconds are important to you)
+- You don't want to learn any Bayesian statistics
+
+...BART probably isn't for you.
+]
+
+
+---
+
+## BART for Classification - Problem Specification
+
+Although BART is typically used for regression, it can be modified some and used for classification. For simplicity sake, we can assume we are performing binary classification, so we have:
+
+$$
+Y_i \in \{0,1\}
+$$
+
+This brings up an issue, as in typical BART, we have:
+
+$$
+Y_i=f(\mathbf{x_i})+\epsilon_i,\quad \epsilon_i\sim N(0,\sigma^2)
+$$
+Here, Y can be any real number, but in our case, we need Y to take on values of 0 or 1.
+
+---
+
+## BART for Classification - Latent Variable Setup
+
+To combat the previously mentioned problem, we introduce whats known as **latent** or unobserved variable:
+
+$$
+Z_i = f(\mathbf{x_i}) + \eta_i,\quad \eta_i\sim N(0,1)
+$$
+Then we further define:
+$$
+Y =
+\begin{cases}
+1, & \text{if } Z > 0 \\
+0, & \text{if } Z \le 0
+\end{cases}
+$$
+What does each piece mean?
+
+1. $f(\mathbf{x_i})$ is still using out typical BART setup, so its still building a flexible function from many small trees.
+2. $\eta_i$ is the latent random noise associated with our latent variable. We assume a standard normal distribution such that we can compute probabilities later on.
+3. $Y_i$ is our observed binary outcome.
+
+---
+
+## BART for Classification - Probability Classes
+
+At the current moment we have found out a way to transform our continuous hidden score into a binary outcome, but as our latent variable is random, we need a way to compute probabilities regarding its classification. We currently have
+
+$$
+Y_i = 1 \iff Z_i = f(\mathbf{x_i}) + \eta_i > 0
+$$
+Then, as these two events are equivalent then they must have the same probabilities, so:
+
+$$
+P(Y_i = 1 | x_i) = P(f(\mathbf{x_i}) + \eta_i > 0 |\mathbf{x_i} )
+$$
+Then, if we rearrange the inequality on the right side, then we get:
+
+$$
+P(Y_i = 1 | x_i) = P(\eta_i > -f(\mathbf{x_i}) |\mathbf{x_i} ) = P(\eta_i < f(\mathbf{x_i}) | \mathbf{x_i} )
+$$
+Consider that because $\eta_i \sim N(0,1)$ then this is simply equivalent to the area under the standard normal curve to the left of $x_i$. In other words the probability is simply the CDF value at that point:
+
+$$
+P(Y_i = 1 | x_i) = \Phi(f(\mathbf{x_i}))
+$$
+
+---
+
+## BART for Classification - How to Classify
+
+We get probability equal for the class of 1 equal to the CDF at that point, but how do we actually get a definitive classification? First, we can define the probability:
+
+$$
+p(x) = \Phi(f(\mathbf{x}))
+$$
+Then, we can assign our classification based of this probability as such:
+$$
+Y =
+\begin{cases}
+1, & \text{if } p(x) > 0.5 \\
+0, & \text{if } p(x) \le 0.5
+\end{cases}
+$$
+
+---
+
+## Common Use Cases of BART
+
+BART is commonly used if the relationship is nonlinear, indicators may interact, and we do not want to specify the form of the relationship like linear regression. The use cases for BART include:
+
+- Prediction for continuous outcomes (house prices, medical measurements, etc)
+
+- Classification via class probabilities (Disease or no disease, animal type, etc)
+
+- Casual inference (How much did a treatment effect a certain response variable?)
+  - BART is especially useful as it allows interactions among covariates, so we can model treatment effects across different combinations of covariates.
+
+---
+
+## BART R Libraries
+
+BART is typically carried out with two different R libraries: BART and dbarts
+
+.pull-left[
+BART
+
+- Broader BART modeling package that includes several different BART variants
+  - Regression, binary classification, multi-class classification, etc.
+  
+- More specialized functions that handle specific use cases, like "wbart()" for continuous regression and "pbart()" for binary outcomes.
+
+- Has specific support for multi-class classification via the "pbart()" function.
+
+- Use if you want a broader BART toolbox.
+  
+]
+
+.pull-right[
+dbarts
+
+- Cleaner and faster package for standard BART 
+
+- Typically used via the main function "bart()", so it has a simpler interface.
+
+- More centered around regression, not built for multi-class classification.
+
+- Overall, its more useful for standard regression and a simpler interface.
+
+]
+
+---
+## The  **dbarts** Package
+
+```{r}
+#install.packages("dbarts")
+library(dbarts)
+```
+
+There are two functions to fit a BART model
+```{r, eval = F}
+bart <- bart(y ~ x, data = data)
+bart2 <- bart2(y ~ x, data = data)
+```
+Use **bart2()**
+> bart() was the initial implementation while bart2 has more in depth defaults included
+> bart2() supports standard (y ~ x) syntax while bart() requires matrix inputs. Additionally, bart2() implements parallelization to four chains whereas bart() does not implement parallelization
+
+What to know about dbarts:
+- keepTrees is defaulted to false. When you want to make predictions on data you don't have, switch it to true. 
+- dbarts has a predict() function similar to other libraries that can be used to calculate probabilities 
+
+---
+
+## Important Parameters
+
+- you can change k (end-node prior) which controls how conservative the model is. A higher k makes the model more conservative and binary models are more sensitive to these changes
+- ntree/n.trees defaults to 200 for bart() and 75 for bart2())
+- ndpost/n.samples controls the number of posterior draws after the initial period
+- nskip/n.burn controls the number of initial MCMC iterations to discard to ensure the sampler has reached a stationary distribution
+
+## Built-in Visualization and Diagnostics
+- The **plot()** function generates a trace plot of $\sigma$ to check if the MCMC chain has converged as well as a "fitted vs. actual" plot showing the posterior intervals for f(x) (for classification problems, plot() only returns the performance plots since the standard deviation is constant)
+- varcount allows you to see which variables are used most frequently in tree splits to determine variable importance
+
+
 
 ---
 
 ## Baby Example: BART for Classification
 
-To add to this example:
-- highlight that BART functions as a nonparametric Bayesian approach (it's a probability estimator)
-- use proper terminology (posteriors, prior, weak learners, MCMC, etc)
-- highlight the regularization prior to keep each tree as a weak learner: even without tuning, bart's default priors prevent it from overfitting the small iris dataset unlike glm which can be more sensitive to outliers
-- understand how dbarts package handles classification 
-- Quantitative results: Bart performs very well without the need for tuning (look into whether that is due to overfitting)
+We use the `iris` dataset to predict if a flower is a **Versicolor**. This uses the **probit link** theory discussed previously to model the probability of a binary outcome. 
 
-We use the `iris` dataset to predict if a flower is a **Versicolor**. This uses the **probit link** theory discussed previously to model the probability of a binary outcome.
+Below three models are fit.
+- First, BART is fit on all the variables
+- Next, BART is fit using on Sepal.Length and Sepal.Width
+- Finally a logistic regression model is fit on all the variables for comparison
 
 ```{r}
-library(dbarts)
 data(iris)
-
+set.seed(1)
 iris_class <- iris
 iris_class$isVersicolor <- as.numeric(iris_class$Species == "versicolor")
 
-# Fitting BART for classification
-fit_class <- bart(x.train = iris_class[, 1:4], 
-                  y.train = iris_class$isVersicolor, 
-                  keepevery = 10, verbose = FALSE)
-
-# Store posterior means (probabilities)
-bart_probs <- colMeans(fit_class$yhat.train)
-
-# Fit Logistic Regression for comparison
+fit_class <- bart2(isVersicolor ~ Sepal.Length + Sepal.Width + Petal.Length + Petal.Width, 
+                   data = iris_class, keepTrees = TRUE, verbose = FALSE)
+reduced_fit <- bart2(isVersicolor ~ Sepal.Length + Sepal.Width, 
+                     data = iris_class, keepTrees = TRUE, verbose = FALSE)
 glm_fit <- glm(isVersicolor ~ Sepal.Length + Sepal.Width + Petal.Length + Petal.Width, 
                data = iris_class, family = binomial)
-
 ```
 
 ---
-BART uses **regularization via priors** to capture non-linear boundaries. While both models perform well, we can visualize where they differ in "decisiveness" and error types.
+## Bart Visualizations
+```{r, echo = F}
+par(mfrow = c(1, 2))
+plot(fit_class, main = "Full Model")
+plot(reduced_fit, main = "Reduced Model")
+```
 
+### add analysis of the difference here
+
+---
+### Calculate Prediction Accuracies
 ```{r, eval=F}
-# Predictions at 0.5 threshold
+# First use the predict() function in dbarts to generate predictions
+bart_probs <- predict(fit_class, iris_class[, 1:4])
+# Next use the colMeans() function to find the mean of each row in the matrix generated previously
+bart_probs <- colMeans(bart_probs)
+# If the average is greater than 0.5, it is labelled as a versicolor (1)
 bart_pred <- ifelse(bart_probs > 0.5, 1, 0)
+
+# Collect glm predictions with the same decision threshold of 0.5
 glm_pred <- ifelse(predict(glm_fit, type = "response") > 0.5, 1, 0)
 
+# Store the resulting counts of correct and incorrect predictions 
 df_errors <- data.frame(
   Method = rep(c("BART", "Logistic Regression"), each = 2),
   ErrorType = rep(c("Missed Versicolors", "Wrongly Labeled"), 2),
   Count = c(
     sum(bart_pred == 0 & iris_class$isVersicolor == 1),
     sum(bart_pred == 1 & iris_class$isVersicolor == 0),
+    sum(r_bart_pred == 0 & iris_class$isVersicolor == 1),
+    sum(r_bart_pred == 1 & iris_class$isVersicolor == 0),
     sum(glm_pred == 0 & iris_class$isVersicolor == 1),
     sum(glm_pred == 1 & iris_class$isVersicolor == 0)
   )
 )
-
-ggplot(df_errors, aes(x = Method, y = Count, fill = ErrorType)) +
-  geom_bar(stat = "identity", position = "dodge", color = "black") + 
-  scale_fill_manual(values = c("Missed Versicolors" = "darkred", "Wrongly Labeled" = "navy")) +
-  geom_text(aes(label = Count), position = position_dodge(width = 0.9), vjust = -0.5) +
-  labs(title = "Classification Mistakes", x = "", y = "Count") +
-  theme_bw()
 ```
+
 ---
-```{r, eval=T, echo=F,  fig.height=4.5}
-# Predictions at 0.5 threshold
+### Using GGplot to compare the accuracies
+```{r, eval=T, echo=F,  fig.height=4}
+bart_probs <- predict(fit_class, iris_class[, 1:4])
+bart_probs <- colMeans(bart_probs)
 bart_pred <- ifelse(bart_probs > 0.5, 1, 0)
-glm_pred <- ifelse(predict(glm_fit, type = "response") > 0.5, 1, 0)
+
+r_bart_probs <- predict(reduced_fit, iris_class[, 1:4])
+r_bart_probs <- colMeans(r_bart_probs)
+r_bart_pred <- ifelse(r_bart_probs > 0.5, 1, 0)
+
+glm_pred  <- ifelse(predict(glm_fit, type = "response") > 0.5, 1, 0)
 
 df_errors <- data.frame(
-  Method = rep(c("BART", "Logistic Regression"), each = 2),
-  ErrorType = rep(c("Missed Versicolors", "Wrongly Labeled"), 2),
+  Method = rep(c("BART (Full)", "BART (Sepal Only)", "GLM (Full)"), each = 2),
+  ErrorType = rep(c("Missed Versicolors", "Wrongly Labeled"), 3),
   Count = c(
     sum(bart_pred == 0 & iris_class$isVersicolor == 1),
     sum(bart_pred == 1 & iris_class$isVersicolor == 0),
+    sum(r_bart_pred == 0 & iris_class$isVersicolor == 1),
+    sum(r_bart_pred == 1 & iris_class$isVersicolor == 0),
     sum(glm_pred == 0 & iris_class$isVersicolor == 1),
     sum(glm_pred == 1 & iris_class$isVersicolor == 0)
   )
 )
-
 ggplot(df_errors, aes(x = Method, y = Count, fill = ErrorType)) +
   geom_bar(stat = "identity", position = "dodge", color = "black") + 
   scale_fill_manual(values = c("Missed Versicolors" = "darkred", "Wrongly Labeled" = "navy")) +
@@ -454,252 +711,579 @@ ggplot(df_errors, aes(x = Method, y = Count, fill = ErrorType)) +
 ## Classification: Quantitative Results
 
 We evaluate performance using Accuracy, Misclassification Rate, Precision, and Recall. While both models perform well on the `iris` data, BART's **sum-of-trees** structure provides a robust alternative to the linear assumptions of Logistic Regression.
-```{r, echo = F}
+
+```{r, echo=FALSE}
+
 df_plot_class <- data.frame(
-  Actual = as.factor(iris_class$isVersicolor),
-  BART_Prob = bart_probs, 
-  GLM_Prob = predict(glm_fit, type = "response")
+  Actual    = factor(iris_class$isVersicolor, levels = c(0, 1)),
+  BART_Prob = as.numeric(bart_probs),
+  GLM_Prob  = as.numeric(predict(glm_fit, type = "response"))
 )
+df_plot_class$BART_Pred <- factor(ifelse(df_plot_class$BART_Prob > 0.5, 1, 0), levels = c(0, 1))
+df_plot_class$GLM_Pred  <- factor(ifelse(df_plot_class$GLM_Prob > 0.5, 1, 0), levels = c(0, 1))
 
-library(tidyr)
-library(ggplot2)
-
-# Convert probabilities to binary predictions (Threshold = 0.5)
-df_plot_class$BART_Pred <- ifelse(df_plot_class$BART_Prob > 0.5, 1, 0)
-df_plot_class$GLM_Pred <- ifelse(df_plot_class$GLM_Prob > 0.5, 1, 0)
-
-# Calculate Accuracy
-bart_acc <- mean(df_plot_class$BART_Pred == iris_class$isVersicolor)
-glm_acc <- mean(df_plot_class$GLM_Pred == iris_class$isVersicolor)
-
-# Create a simple dataframe for the barplot
-df_acc <- data.frame(
-  Method = c("BART", "Logistic Regression"),
-  Accuracy = c(bart_acc, glm_acc)
-)
-get_metrics <- function(tab) {
-  tp <- tab[2,2] # True Positive
-  tn <- tab[1,1] # True Negative
-  fp <- tab[1,2] # False Positive
-  fn <- tab[2,1] # False Negative
-  
-  accuracy <- (tp + tn) / sum(tab)
-  misclassification <- (fp + fn) / sum(tab)
-  precision <- tp / (tp + fp)
-  recall <- tp / (tp + fn) # Also known as True Positive Rate
-  
-  return(c(Accuracy = accuracy, Misclass = misclassification, 
-           Precision = precision, Recall = recall))
-}
-
-```
-```{r classification-metrics, echo=FALSE}
-# Calculate Confusion Matrices
 bart_table <- table(Actual = df_plot_class$Actual, Predicted = df_plot_class$BART_Pred)
 glm_table  <- table(Actual = df_plot_class$Actual, Predicted = df_plot_class$GLM_Pred)
 
-# Calculate metrics using your function
+get_metrics <- function(tab) {
+  tn <- tab[1,1]; fp <- tab[1,2]; fn <- tab[2,1]; tp <- tab[2,2]
+  accuracy <- (tp + tn) / sum(tab)
+  precision <- ifelse((tp + fp) > 0, tp / (tp + fp), 0)
+  recall    <- ifelse((tp + fn) > 0, tp / (tp + fn), 0)
+  return(c(Accuracy = accuracy, Precision = precision, Recall = recall))
+}
+
 metrics_list <- list(
-  BART = get_metrics(bart_table),
-  GLM  = get_metrics(glm_table)
+  `BART (Full)`  = get_metrics(table(Actual = iris_class$isVersicolor, Predicted = bart_pred)),
+  `BART (Sepal)` = get_metrics(table(Actual = iris_class$isVersicolor, Predicted = r_bart_pred)),
+  `GLM (Full)`   = get_metrics(table(Actual = iris_class$isVersicolor, Predicted = glm_pred))
 )
 
-# Format for display
 comparison_df <- data.frame(
-  Metric = c("Accuracy", "Misclassification Rate", "Precision", "True Positive Rate (Recall)"),
-  BART   = scales::percent(metrics_list$BART, accuracy = 0.1),
-  GLM    = scales::percent(metrics_list$GLM, accuracy = 0.1)
+  Metric = c("Accuracy (TP+TN)", "Precision (TP/TP+FP)", "Recall (TP/TP+FN)"),
+  `BART_Full`  = as.character(scales::percent(unname(metrics_list[[1]]), accuracy = 0.1)),
+  `BART_Reduced` = as.character(scales::percent(unname(metrics_list[[2]]), accuracy = 0.1)),
+  `GLM_Full`   = as.character(scales::percent(unname(metrics_list[[3]]), accuracy = 0.1))
 )
 
-knitr::kable(comparison_df, format = "html", caption = "Performance Comparison: BART vs. GLM")
+knitr::kable(comparison_df, format = "html", 
+             caption = "BART vs. GLM", row.names=F)
+
 ```
 
-
-
+The full bart model shows around 98% accuracy and position. This makes sense given it has the petal data. Without the petal data, the reduced BART model only identifies versicolors around 80% of the time and how more false positives than in the full model. Even with less data, the reduced BART model still performs significantly better than the generalized regression model. 
 
 ---
 
-## Baby Example: BART vs Boosting (mtcars)
+## BART vs LOESS: Regression Example
+We use the `mcycle` dataset to predict **acceleration** using **time**. We are going to do this using BART as a tree-based regression method versus a LOESS regression which as discussed  in our class focuses on smoothing.
 
-We compare two tree-based methods:
-- **Boosting (GBM)**
-- **BART (Bayesian Additive Regression Trees)**
+How our models are fit.
+- Both BART and LOESS are fit with a 70% split for training data and 30% testing.
+- LOESS is fit using different span values with span chosen using test MSE
+- BART is fit using posterior draws from many trees and averaging
+```{r, echo=FALSE, results='hide'}
+library(MASS)
+library(dbarts)
+data(mcycle)
+```
+```{r}
+set.seed(123)
+x <- mcycle$times
+y <- mcycle$accel
+n <- length(y)
+# Randomly choose 70% of the observations for training
+train_idx <- sample(1:n, size = floor(0.7 * n))
+x_train <- x[train_idx]
+y_train <- y[train_idx]
+x_test <- x[-train_idx]
+y_test <- y[-train_idx]
+# matrix form predictors for dbarts 
+x_train_bart <- as.matrix(x_train)
+x_test_bart  <- as.matrix(x_test)
+```
+```{r, echo=TRUE, results='hide'}
+spans <- c(0.25, 0.35, 0.50, 0.65, 0.75)
 
-Goal:
-- Predict mpg and compare training vs testing error
+# Vectors to store LOESS train/test errors
+loess_train_mse <- numeric(length(spans))
+loess_test_mse  <- numeric(length(spans))
+# Fit one LOESS model for each span value
+for (i in 1:length(spans)) {
+  # Fit LOESS model using training data
+  loess_fit <- loess(y_train ~ x_train,span = spans[i],degree = 1
+  )
+    
+  # Predict acceleration for training data
+  loess_train_pred <- predict(
+    loess_fit,
+    newdata = data.frame(x_train = x_train)
+  )
+  
+  # Predict acceleration for testing data
+  loess_test_pred <- predict(
+    loess_fit,
+    newdata = data.frame(x_train = x_test)
+  )
+  
+  # Compute training MSE for this span
+  loess_train_mse[i] <- mean(
+    (y_train - loess_train_pred)^2,
+    na.rm = TRUE
+  )
+  
+  # Compute testing MSE for this span
+  loess_test_mse[i] <- mean(
+    (y_test - loess_test_pred)^2,
+    na.rm = TRUE
+  )
+}
 
-## Step 1: Train/Test Split
 
-```{r  echo=TRUE, results='hide'}
-## Step 1: Train/Test Split {.smaller}
+# Find the LOESS span with the lowest test error
+best_loess_index <- which.min(loess_test_mse)
+
+# Save the best LOESS train and test error
+loess_best_train <- loess_train_mse[best_loess_index]
+loess_best_test  <- loess_test_mse[best_loess_index]
+
+```
+```{r}
+# Fit BART using dbarts
+# ntree  = number of trees
+# ndpost = number of posterior draws saved
+# nskip  = number of burn-in draws skipped
+bart_model <- bart( x.train = x_train_bart, y.train = y_train, x.test  = x_test_bart,ntree = 100, ndpost = 500, nskip = 200
+)
+
+```
+
+---
+### Calculate Prediction Accuracies
+```{r, echo=TRUE, results='hide'}
+# Extract posterior predictions for train and test sets
+bart_train_draws <- bart_model$yhat.train
+bart_test_draws  <- bart_model$yhat.test
+# Make sure rows are posterior draws and columns are observations
+if (ncol(bart_train_draws) != length(y_train)) {
+  bart_train_draws <- t(bart_train_draws)
+}
+if (ncol(bart_test_draws) != length(y_test)) {
+  bart_test_draws <- t(bart_test_draws)
+}
+# Number of posterior draws
+n_draws <- nrow(bart_train_draws)
+# Vectors to store dbarts train/test MSE for each posterior draw
+bart_train_mse <- numeric(n_draws)
+bart_test_mse  <- numeric(n_draws)
+# Compute MSE for each posterior draw
+for (i in 1:n_draws) {
+  # Training MSE for posterior draw i
+  bart_train_mse[i] <- mean((y_train - bart_train_draws[i, ])^2)
+  # Testing MSE for posterior draw i
+  bart_test_mse[i] <- mean((y_test - bart_test_draws[i, ])^2)
+}
+```
+---
+
+### Compare the accuracies
 
 ```{r, echo=TRUE, results='hide'}
-# Load the packages we need:
-# BART for Bayesian Additive Regression Trees
-# gbm for boosting
-library(BART)
-library(gbm)
-
-# Set a seed so the random split is reproducible
-set.seed(123)
-
-# Load the mtcars dataset
-data(mtcars)
-
-# Count the total number of observations
-n <- nrow(mtcars)
-
-# Randomly choose about 70% of the rows for training
-train_idx <- sample(1:n, size = floor(0.7 * n))
-
-# Create training and testing sets
-train <- mtcars[train_idx, ]
-test  <- mtcars[-train_idx, ]
-
-# Build predictor matrices for BART
-# We remove mpg because that is the response variable
-x_train <- as.matrix(train[, -1])
-y_train <- train$mpg
-
-x_test <- as.matrix(test[, -1])
-y_test <- test$mpg
+# Smooth the dbarts errors using cumulative averages
+bart_train_mse_smooth <- cumsum(bart_train_mse)/seq_along(bart_train_mse)
+bart_test_mse_smooth  <- cumsum(bart_test_mse) / seq_along(bart_test_mse)
+# Average dbarts train and test error across posterior draws
+bart_final_train <- mean(bart_train_mse)
+bart_final_test  <- mean(bart_test_mse)
 ```
----
+BART error is shown as the average test MSE across posterior draws, while LOESS is shown as a constant line using its best span. This allows us to compare BART’s convergence to LOESS’s best performance.
 
-## Step 2: Boosting and BART Model
-```{r  echo=TRUE, results='hide'}
-# Set the number of boosting iterations (trees)
-n_trees <- 200
+```{r, eval=T, echo=F, fig.width=4, fig.height=3.5,  out.width="30%"}
 
-# Fit the boosting model
-# This is a regression problem, so distribution = "gaussian"
-boost_model <- gbm(
-  mpg ~ .,
-  data = train,
-  distribution = "gaussian",
-  n.trees = n_trees,
-  interaction.depth = 2,
-  shrinkage = 0.05,
-  bag.fraction = 1.0,
-  n.minobsinnode = 2,
-  verbose = FALSE
-)
-
-# Create vectors to store training and testing error at each tree
-boost_train_err <- numeric(n_trees)
-boost_test_err  <- numeric(n_trees)
-
-# Loop through the trees one at a time
-# At each step, compute train and test MSE
-for (i in 1:n_trees) {
-  pred_train <- predict(boost_model, train, n.trees = i)
-  pred_test  <- predict(boost_model, test,  n.trees = i)
-
-  boost_train_err[i] <- mean((y_train - pred_train)^2)
-  boost_test_err[i]  <- mean((y_test - pred_test)^2)
-}
-
-# Fit the BART model
-# x.test is included so BART also produces test predictions
-bart_model <- wbart(
-  x.train = x_train,
-  y.train = y_train,
-  x.test  = x_test,
-  ndpost  = 200
-)
-
-# Extract posterior prediction matrices
-bart_train_mat <- bart_model$yhat.train
-bart_test_mat  <- bart_model$yhat.test
-
-# Make sure the matrices are oriented correctly:
-# rows = posterior draws, columns = observations
-if (ncol(bart_train_mat) == length(y_train)) {
-  bart_train_draws <- bart_train_mat
-} else {
-  bart_train_draws <- t(bart_train_mat)
-}
-
-if (ncol(bart_test_mat) == length(y_test)) {
-  bart_test_draws <- bart_test_mat
-} else {
-  bart_test_draws <- t(bart_test_mat)
-}
-
-# Count the number of posterior draws
-n_draws <- nrow(bart_train_draws)
-
-# Create vectors to store BART training and testing error
-bart_train_err <- numeric(n_draws)
-bart_test_err  <- numeric(n_draws)
-
-# For each posterior draw, compute the train and test MSE
-for (i in 1:n_draws) {
-  bart_train_err[i] <- mean((y_train - bart_train_draws[i, ])^2)
-  bart_test_err[i]  <- mean((y_test - bart_test_draws[i, ])^2)
-}
-
-# Smooth the BART error curves using cumulative averages
-# This makes the Bayesian draws easier to compare visually
-bart_train_err_smooth <- cumsum(bart_train_err) / seq_along(bart_train_err)
-bart_test_err_smooth  <- cumsum(bart_test_err) / seq_along(bart_test_err)
-```
----
-
-## Step 3: Error Comparison
-```{r, echo=FALSE,  fig.width=7, fig.height=3.5,  out.width="50%"}
-
-plot(boost_train_err, type = "l",
-     col = "blue", lwd = 2,
-     ylim = range(c(boost_train_err, boost_test_err,
-                    bart_train_err_smooth, bart_test_err_smooth)),
-     xlab = "Iterations / Draws",
+# This plot shows how LOESS error changes as span changes
+plot(spans, loess_train_mse,
+     type = "b",
+     pch = 19,
+     col = "blue",
+     lwd = 2,
+     ylim = range(c(loess_train_mse, loess_test_mse), na.rm = TRUE),
+     xlab = "LOESS Span",
      ylab = "Mean Squared Error",
-     main = "BART vs Boosting: Train and Test Error")
+     main = "LOESS Train and Test Error")
 
-lines(boost_test_err, col = "blue", lty = 2, lwd = 2)
-lines(bart_train_err_smooth, col = "orange", lwd = 2)
-lines(bart_test_err_smooth, col = "orange", lty = 2, lwd = 2)
+lines(spans, loess_test_mse,
+      type = "b",
+      pch = 19,
+      col = "red",
+      lty = 2,
+      lwd = 2)
 
 legend("topright",
-       legend = c("Boosting Train", "Boosting Test",
-                  "BART Train", "BART Test"),
-       col = c("blue", "blue", "orange", "orange"),
+       legend = c("LOESS Train MSE", "LOESS Test MSE"),
+       col = c("blue", "red"),
+       lty = c(1, 2),
+       pch = c(19, 19),
+       lwd = 2,
+       cex = 0.8,  
+      bty = "n" )
+
+
+
+# This plot shows how dbarts error changes across posterior draws
+plot(bart_train_mse_smooth,
+     type = "l",
+     col = "darkgreen",
+     lwd = 2,
+     ylim = range(c(bart_train_mse_smooth, bart_test_mse_smooth)),
+     xlab = "Posterior Draw",
+     ylab = "Mean Squared Error",
+     main = "BART Train and Test Error")
+
+lines(bart_test_mse_smooth,
+      col = "orange",
+      lty = 2,
+      lwd = 2)
+
+legend("topright",
+       legend = c("BART Train MSE", "BART Test MSE"),
+       col = c("darkgreen", "orange"),
+       lty = c(1, 2),
+       lwd = 2,
+       cex = 0.8,  
+      bty = "n" )
+
+
+# LOESS gives one best train/test error value after choosing the best span.
+# To compare it with dbarts across posterior draws, repeat the LOESS error
+# values as horizontal reference lines.
+loess_train_line <- rep(loess_best_train, n_draws)
+loess_test_line  <- rep(loess_best_test, n_draws)
+
+# Plot dbarts train error first
+plot(bart_train_mse_smooth,
+     type = "l",
+     col = "darkgreen",
+     lwd = 2,
+     ylim = range(c(bart_train_mse_smooth,
+                    bart_test_mse_smooth,
+                    loess_train_line,
+                    loess_test_line)),
+     xlab = "Posterior Draw",
+     ylab = "Mean Squared Error",
+     main = "LOESS vs BART: Train and Test Error")
+
+# Add dbarts test error
+lines(bart_test_mse_smooth,
+      col = "orange",
+      lwd = 2,
+      lty = 2)
+
+# Add LOESS train error as a horizontal line
+lines(loess_train_line,
+      col = "blue",
+      lwd = 2)
+
+# Add LOESS test error as a horizontal dashed line
+lines(loess_test_line,
+      col = "red",
+      lwd = 2,
+      lty = 2)
+
+legend("topright",
+       legend = c("BART Train", "BART Test", "LOESS Train best span", "LOESS Test best span"),
+       col = c("darkgreen", "orange", "blue", "red"),
        lty = c(1, 2, 1, 2),
-       lwd = 2)
-```       
+       lwd = 2,
+       cex = 0.8,  
+      bty = "n" )
 
-In boosting, the training error decreases rapidly toward zero, while the test error stops improving, indicating overfitting. In contrast, BART maintains similar training and testing error levels, and the errors stabilize after early iterations, suggesting better generalization.
 
-- **BART is less aggressive than boosting:**
-- It does not drive training error to zero
-- It maintains a competitive test error
-- It generalizes better to new data
+```
+---
+## Regression: Quantitative Results
+```{r, eval=TRUE, echo=FALSE, results='asis', fig.width=4, fig.height=3,  out.width="80%"}
+cat("<div style='margin-top: -45px; margin-bottom: -60px;'>")
+
+
+cat('
+<div style="display: flex; gap: 1bart_train_mse[i] <- mean((y_train - bart_train_draws[i, ])^2)
+0px;">
+<div style="width: 50%;">
+')
+
+error_values <- c(
+  loess_best_train,
+  loess_best_test,
+  bart_final_train,
+  bart_final_test
+)
+
+bar_colors <- c("blue", "red", "darkgreen", "orange")
+
+barplot(error_values,
+        names.arg = c("LOESS\nTrain", "LOESS\nTest",
+                      "dbarts\nTrain", "dbarts\nTest"),
+        col = bar_colors,
+        ylab = "MSE",
+        main = "Error Comparison",
+        ylim = c(0, max(error_values) * 1.25),
+        cex.names = 0.75,
+        cex.main = 0.9,
+        cex.lab = 0.8,
+        cex.axis = 0.75)
+
+legend("topright",
+       legend = c("LOESS Train", "LOESS Test",
+                  "dbarts Train", "dbarts Test"),
+       fill = bar_colors,
+       cex = 0.6,
+       bty = "n")
+
+cat('
+</div>
+<div style="width: 45%; font-size: 11px; display: flex; justify-content: center; align-items: center;">
+')
+
+comparison_df <- data.frame(
+  Metric = c("Tuning / Draws", "Training MSE", "Testing MSE"),
+  LOESS = c(
+    paste("Best span =", spans[best_loess_index]),
+    round(loess_best_train, 4),
+    round(loess_best_test, 4)
+  ),
+  dbarts = c(
+    paste("Posterior draws =", n_draws),
+    round(bart_final_train, 4),
+    round(bart_final_test, 4)
+  )
+)
+
+print(
+  knitr::kable(
+    comparison_df,
+    caption = "LOESS vs BART Regression Error Comparison",
+    align = "c"
+  )
+)
+
+cat('
+</div>
+</div>
+')
+
+cat("</div>")
+
+```
+**In this example**:
+
+LOESS achieved a **lower test error** than BART when predicting acceleration from time in the mcycle dataset. This result is expected because the relationship in the data is smooth and one-dimensional, which aligns well with the assumptions behind LOESS. LOESS is specifically designed to capture local trends in such settings, making it highly effective here. In contrast, BART is a more `flexible, tree-based method` that can model complex and high-dimensional relationships, but that flexibility is not necessary for this dataset and can introduce additional variance. This comparison highlights an important idea: **more complex models do not always lead to better performance**, and choosing an appropriate method depends heavily on the structure of the data.
+---
+## Main Example: Diabetes Dataset
+
+The National Institute of Diabetes and Digestive and Kidney Diseases is constantly studying factors that may make a person more susceptible to diabetes.  Finding factors can help both prevent future cases of diabetes and mitigate implications arising from being Diabetic.
+
+In this specific dataset, the factors being explored are taken from a sample of women of Pima Indian descent that are at least 21 years old.
+
+Along with the provided factors, it is indicated whether a given patient has diabetes or not.  With this information, it can be explored how certain medical metrics such as BMI, Insulin/Glucose Levels, and Genetic Risk, among others, play a role in developing diabetes.
+
+Smith, J.W., Everhart, J.E., Dickson, W.C., Knowler, W.C., & Johannes, R.S. (1988). Using the ADAP learning algorithm to forecast the onset of diabetes mellitus. In Proceedings of the Symposium on Computer Applications and Medical Care (pp. 261--265). IEEE Computer Society Press.
+
+The data can be viewed here: https://drive.google.com/file/d/1r6eMGjYrZQn6I15Msn23VjukVO0Rh-C7/view?usp=sharing
 
 ---
 
+## Data Dictionary
+
+Going forward, these variables will be relevant for this problem:
+
+```{r, echo=FALSE}
+dictionaryDF <- data.frame(
+  Variable = c("Age","Blood Pressure", "BMI", "Diabetes Pedigree Function","Glucose", "Insulin","Pregnancies", "Skin Thickness", "Outcome"),
+  Description   = c("Age of the Patient","Blood Pressue of Patient","BMI of the Patient","Function Measuring Genetic Risk of a Patient to Diabetes", "Measured Glucose Levels of Patient via 2-Hour Glucose Test", "Measured Insulin Levels of Patient via 2-Hour Serum Insulin Test","Number of Pregnancies a Patient has had", "Tricep Skin Fold Thickness of Patient","Indicates if a Patient has diabetes or not"),
+  Type = c("Integer", "Integer", "Float", "Float", "Integer", "Integer", "Integer","Integer","Boolean") 
+)
+
+knitr::kable(dictionaryDF, format = "html", 
+             caption = "Diabetes Data Dictionary")
+```
+
+---
+
+## Running BART Model
+
+To begin the dataset needs to be cleaned of missing values, followed by assigning our predictor and response variables.
+
+After, BART can be run to answer the following question: **Can the given medical predictor variables be used to predict if a patient has Diabetes?**
+
+```{r}
+diabetesCSV <- read.csv("diabetes.csv")
+diabetesCSV <- na.omit(diabetesCSV)
+# Replaces Zero Values with the Median Value of the Dataset in Applicable Columns
+zero_cols <- c("Glucose", "BloodPressure", "SkinThickness", "Insulin", "BMI")
+diabetesCSV[zero_cols] <- lapply(diabetesCSV[zero_cols], function(x) ifelse(x == 0, NA, x))
+for (col in zero_cols) {
+  diabetesCSV[[col]][is.na(diabetesCSV[[col]])] <- median(diabetesCSV[[col]], na.rm = TRUE)
+}
+set.seed(1)
+train_indices = sample(1:nrow(diabetesCSV), 0.7 * nrow(diabetesCSV))
+train_df = diabetesCSV[train_indices, ]
+test_df  = diabetesCSV[-train_indices, ]
+bart_model = bart2(Outcome ~ Age + BMI + BloodPressure + Insulin + 
+                   DiabetesPedigreeFunction + Glucose + SkinThickness, data = train_df, 
+                   keepTrees = TRUE, verbose = FALSE,  
+                   offset = qnorm(sum(train_df$Outcome) / nrow(train_df)))
+```
+
+---
+
+**Now that the model has been run, predictions can be made and the accuracy can be found:**
+
+```{r}
+bart_raw_preds  = predict(bart_model, newdata = test_df)
+bart_prob_preds = colMeans(bart_raw_preds)
+
+# Using the standard 0.5 threshold 
+bart_preds = ifelse(bart_prob_preds > 0.5, 1, 0)
+bart_errors <- data.frame(
+  Method = rep(c("Non-Diabetes Patient", "Diabetes Patient"), each = 2),
+  ErrorType = rep(c("Correctly Labeled", "Incorrectly Labeled"), 1),
+  Count = c(
+    sum(bart_preds == 0 & test_df$Outcome == 0), sum(bart_preds == 1 & test_df$Outcome == 0),
+    sum(bart_preds == 1 & test_df$Outcome == 1), sum(bart_preds == 0 & test_df$Outcome == 1)
+  )
+)
+```
+
+```{r, echo=FALSE}
+knitr::kable(bart_errors, format = "html", caption = "BART Model Results")
+```
+
+---
+
+## Visualizing BART's Accuracy
+
+```{r, echo=FALSE, fig.height=4}
+ggplot(bart_errors, aes(x = Method, y = Count, fill = ErrorType)) +
+  geom_bar(stat = "identity", position = "dodge", color = "black") + 
+  scale_fill_manual(values = c("Correctly Labeled" = "navy", "Incorrectly Labeled" = "darkred")) +
+  geom_text(aes(label = Count), position = position_dodge(width = 0.9), vjust = -0.5) +
+  labs(title = "Classification Mistakes", x = "", y = "Count") +
+  theme_bw()
+```
+
+---
+
+## Other Metrics
+
+In addition to visualizing the raw number of correct and incorrect classifications, this can be expanded on to get the percentage accuracy.
+
+```{r}
+totalAccuracy = (sum(bart_preds == 0 & test_df$Outcome == 0) + 
+                   sum(bart_preds == 1 & test_df$Outcome == 1)) / length(test_df$Outcome)
+cat("Overall Model Accuracy:", totalAccuracy)
+```
+
+```{r}
+normalAccuracy = sum(bart_preds == 0 & test_df$Outcome == 0) / length(which(test_df$Outcome == 0))
+cat("Non-Diabetes Patient Accuracy:", normalAccuracy)
+```
+
+```{r}
+hrAccuracy = sum(bart_preds == 1 & test_df$Outcome == 1) / length(which(test_df$Outcome == 1))
+cat("Diabetes Patient Accuracy:", hrAccuracy)
+```
+
+---
+
+## Establishing a Benchmark Model
+
+We used random forest as a comparison model to evaluate how well BART performs with this particular dataset.
+
+Random forest is a strong baseline because it: 
+
+- Handles nonlinear relationships
+- Captures interactions between variables
+- Is known for stable performance on classification problems
+
+```{r}
+library(randomForest)
+
+rf_model = randomForest(
+  as.factor(Outcome) ~ Age + BMI + BloodPressure + Insulin + DiabetesPedigreeFunction + Glucose + SkinThickness,
+  data = train_df,
+  ntree = 500
+)
+```
+
+---
+
+## Generating Predictions
+
+```{r}
+rf_prob_preds = predict(rf_model, newdata = test_df, type = "prob")[,2]
+
+# Using the standard 0.5 threshold 
+rf_preds = ifelse(rf_prob_preds > 0.5, 1, 0)
+rf_errors <- data.frame(
+  Method = rep(c("Non-Diabetes Patient", "Diabetes Patient"), each = 2),
+  ErrorType = rep(c("Correctly Labeled", "Incorrectly Labeled"), 1),
+  Count = c(
+    sum(rf_preds == 0 & test_df$Outcome == 0), sum(rf_preds == 1 & test_df$Outcome == 0),
+    sum(rf_preds == 1 & test_df$Outcome == 1), sum(rf_preds == 0 & test_df$Outcome == 1)
+  )
+)
+```
 
 
+```{r, echo=FALSE}
+knitr::kable(rf_errors, format = "html",caption = "Random Forest Model Results")
+```
 
+---
 
+## Visualizing Random Forest Accuracy
 
+```{r, echo=FALSE, fig.height=4}
+ggplot(rf_errors, aes(x = Method, y = Count, fill = ErrorType)) +
+  geom_bar(stat = "identity", position = "dodge", color = "black") + 
+  scale_fill_manual(values = c("Correctly Labeled" = "navy", "Incorrectly Labeled" = "darkred")) +
+  geom_text(aes(label = Count), position = position_dodge(width = 0.9), vjust = -0.5) +
+  labs(title = "Classification Mistakes", x = "", y = "Count") +
+  theme_bw()
+```
 
+---
 
+## Other Metrics
 
+```{r}
+rf_totalAccuracy = (sum(rf_preds == 0 & test_df$Outcome == 0) + 
+                      sum(rf_preds == 1 & test_df$Outcome == 1)) / length(test_df$Outcome)
+cat("Overall Model Accuracy:", rf_totalAccuracy)
+```
 
+```{r}
+rf_normalAccuracy = sum(rf_preds == 0 & test_df$Outcome == 0) / length(which(test_df$Outcome == 0))
+cat("Non-Diabetes Patient Accuracy:", rf_normalAccuracy)
 
+```
 
+```{r}
+rf_hrAccuracy = sum(rf_preds == 1 & test_df$Outcome == 1) / length(which(test_df$Outcome == 1))
+cat("Diabetes Patient Accuracy:", rf_hrAccuracy)
 
+```
 
+---
 
+## BART vs Random Forest Comparison
 
+```{r}
+comparison <- data.frame(
+  Model = c("BART", "Random Forest"),
+  Overall = c(totalAccuracy, rf_totalAccuracy),
+  Non.Diabetic = c(normalAccuracy, rf_normalAccuracy),
+  Diabetic = c(hrAccuracy, rf_hrAccuracy)
+)
+```
 
+```{r, echo=FALSE}
+knitr::kable(comparison, format = "html",caption = "Accuracy Comparison: BART v. Random Forest")
+```
 
+---
 
+## BART v. Random Forest Comparison
 
+So overall, the models have a similar overall accuracy, with BART having an accuracy of `r comparison$Overall[1]`, only `r comparison$Overall[1] - comparison$Overall[2]` better than Random Forest.  There is one key difference between the models though.
 
+**BART was much more successful at predicting Diabetic Patients.**
 
+And it's not particularly close either. BART held an accuracy of **`r comparison$Diabetic[1]`** in correctly identifying patients who were diabetic, while Random Forest only boasted an accuracy of **`r comparison$Diabetic[2]`**.
 
+Why does this matter?  In Health, getting an accurate diagnosis (True Positive) holds extra weight so the correct treatment can be applied to a patient.  Someone who is mistakingly not diagnosed when they should could fail to get the needed treatment, which could escalate the issue.
+
+So in the case of making sure the right patients get treatment, BART becomes the more successful model by almost **20%**.
 
 ---
 exclude: true
