@@ -1039,7 +1039,7 @@ cat("Diabetes Patient Accuracy:", hrAccuracy)
 
 ---
 
-## Establishins a Benchmark Model
+## Establishing a Benchmark Model
 
 We used random forest as a comparison model to evaluate how well BART performs with this particular dataset.
 
@@ -1087,7 +1087,7 @@ knitr::kable(rf_errors, format = "html",caption = "Random Forest Model Results")
 
 ## Visualizing Random Forest Accuracy
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, fig.height=4}
 ggplot(rf_errors, aes(x = Method, y = Count, fill = ErrorType)) +
   geom_bar(stat = "identity", position = "dodge", color = "black") + 
   scale_fill_manual(values = c("Correctly Labeled" = "navy", "Incorrectly Labeled" = "darkred")) +
@@ -1135,7 +1135,19 @@ comparison <- data.frame(
 knitr::kable(comparison, format = "html",caption = "Accuracy Comparison: BART v. Random Forest")
 ```
 
-Random Forest is the better model for this dataset, suggesting the underlying relationships are not complex. Although BART is designed to capture complex linear structure, the higher performance of Random Forest suggests the data is relatively stable and does not require as much model flexibility.
+---
+
+## BART v. Random Forest Comparison
+
+So overall, the models have a similar overall accuracy, with BART having an accuracy of `r comparison$Overall[1]`, only `r comparison$Overall[1] - comparison$Overall[2]` better than Random Forest.  There is one key difference between the models though.
+
+**BART was much more successful at predicting Diabetic Patients.**
+
+And it's not particularly close either. BART held an accuracy of **`r comparison$Diabetic[1]`** in correctly identifying patients who were diabetic, while Random Forest only boasted an accuracy of **`r comparison$Diabetic[2]`**.
+
+Why does this matter?  In Health, getting an accurate diagnosis (True Positive) holds extra weight so the correct treatment can be applied to a patient.  Someone who is mistakingly not diagnosed when they should could fail to get the needed treatment, which could escalate the issue.
+
+So in the case of making sure the right patients get treatment, BART becomes the more successful model by almost **20%**.
 
 ---
 exclude: true
