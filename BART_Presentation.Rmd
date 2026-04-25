@@ -1100,8 +1100,8 @@ diabetesCSV <- read.csv("diabetes.csv")
 diabetesCSV <- na.omit(diabetesCSV)
 # Replaces Zero Values with the Median Value of the Dataset in Applicable Columns
 zero_cols <- c("Glucose", "BloodPressure", "SkinThickness", "Insulin", "BMI")
-diabetesCSV[zero_cols] <- lapply(diabetesCSV[zero_cols], function(x) ifelse(x == 0, NA, x))
 for (col in zero_cols) {
+  diabetesCSV[[col]][diabetesCSV[[col]] == 0] <- NA
   diabetesCSV[[col]][is.na(diabetesCSV[[col]])] <- median(diabetesCSV[[col]], na.rm = TRUE)
 }
 set.seed(1)
