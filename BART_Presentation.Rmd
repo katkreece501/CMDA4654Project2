@@ -922,18 +922,17 @@ In boosting, the training error decreases rapidly toward zero, while the test er
 
 ---
 
-## Main Example: Fetal Health Dataset
+## Main Example: Diabetes Dataset
 
-In childbirth, there are a slurry of complications that can occur.  To best prevent these complications, constant monitoring of the fetus can help detect any issues early on which can protect the mother/baby throughout the whole process.
+The National Institute of Diabetes and Digestive and Kidney Diseases is constantly studying factors that may make a person more susceptible to diabetes.  Finding factors can help both prevent future cases of diabetes and mitigate implications arising from being Diabetic.
 
-This can be done with a Cardiotogram (CTG).  A CTG uses ultrasound waves to capture various metrics of a fetus, including fetal heartbeat, fetal movement, and uterine contractions.  
+In this specific dataset, the factors being explored are taken from a sample of women of Pima Indian descent that are at least 21 years old.
 
-Additionally, the data gives a "health score" for each fetus to determine their risk level.  For this specific dataset, health levels are defined as follows:
-**1: Normal | 2: Suspect | 3: Pathological**
+Along with the provided factors, it is indicated whether a given patient has diabetes or not.  With this information, it can be explored how certain medical metrics such as BMI, Insulin/Glucose Levels, and Genetic Risk, among others, play a role in developing diabetes.
 
-Ayres de Campos et al. (2000) SisPorto 2.0 A Program for Automated Analysis of Cardiotocograms. J Matern Fetal Med 5:311-318
+Smith, J.W., Everhart, J.E., Dickson, W.C., Knowler, W.C., & Johannes, R.S. (1988). Using the ADAP learning algorithm to forecast the onset of diabetes mellitus. In Proceedings of the Symposium on Computer Applications and Medical Care (pp. 261--265). IEEE Computer Society Press.
 
-The data can be viewed here: https://drive.google.com/drive/u/1/folders/1AP13V0-5hTJb7Yuz2BjG6O9Ak_VTppIy
+The data can be viewed here: https://drive.google.com/file/d/1r6eMGjYrZQn6I15Msn23VjukVO0Rh-C7/view?usp=sharing
 
 ---
 
@@ -943,13 +942,13 @@ Going forward, these variables will be relevant for this problem:
 
 ```{r, echo=FALSE}
 dictionaryDF <- data.frame(
-  Variable = c("Abnormal Short Term Variability","Accelerations", "Baseline Value", "Fetal Movement", "Decelerations", "Uterine Contractions", "Health Score"),
-  Description   = c("Percentage of time the fetal heart rate exhibits reduced beat-to-beat variability","Number of Times Heartrate is 15 BPM Over Baseline Value per Second", "Baseline Heartrate Level", "Number of Distinct Fetal Movements per Second", "Number of Times Heartrate is 15 BPM Under Baseline Value per Second", "Number of Uterine Contractions per Second", "Score Representing the current Health Status of a Fetus"),
-  Type = c("Integer", "Float", "Integer", "Integer", "Integer", "Float", "Integer (1, 2, or 3)") 
+  Variable = c("Age","Blood Pressure", "BMI", "Diabetes Pedigree Function","Glucose", "Insulin","Pregnancies", "Skin Thickness", "Outcome"),
+  Description   = c("Age of the Patient","Blood Pressue of Patient","BMI of the Patient","Function Measuring Genetic Risk of a Patient to Diabetes", "Measured Glucose Levels of Patient via 2-Hour Glucose Test", "Measured Insulin Levels of Patient via 2-Hour Serum Insulin Test","Number of Pregnancies a Patient has had", "Tricep Skin Fold Thickness of Patient","Indicates if a Patient has diabetes or not"),
+  Type = c("Integer", "Integer", "Float", "Float", "Integer", "Integer", "Integer","Integer","Boolean") 
 )
 
 knitr::kable(dictionaryDF, format = "html", 
-             caption = "Fetal Health Data Dictionary")
+             caption = "Diabetes Data Dictionary")
 ```
 
 ---
@@ -958,25 +957,25 @@ knitr::kable(dictionaryDF, format = "html",
 
 To begin the dataset needs to be cleaned of missing values, followed by assigning our predictor and response variables.
 
-After, BART can be run to answer the following question: **Can the given CTG Metrics correctly classify if a given fetus is at high risk (Health Score of 2 or 3)?**
+After, BART can be run to answer the following question: **Can the given medical predictor variables be used to predict if a patient has Diabetes?**
 
-```{r echo=TRUE}
-fetalCSV <- read.csv("fetal_health.csv")
-fetalCSV <- na.omit(fetalCSV)
-
-# Changes Score to 2-Dimensional with 0= Normal and 1 = Needs Care (Suspect/Pathological)
-fetalCSV$Target <- ifelse(fetalCSV$fetal_health > 1, 1, 0)
-
+```{r}
+diabetesCSV <- read.csv("diabetes.csv")
+diabetesCSV <- na.omit(diabetesCSV)
+# Replaces Zero Values with the Median Value of the Dataset in Applicable Columns
+zero_cols <- c("Glucose", "BloodPressure", "SkinThickness", "Insulin", "BMI")
+diabetesCSV[zero_cols] <- lapply(diabetesCSV[zero_cols], function(x) ifelse(x == 0, NA, x))
+for (col in zero_cols) {
+  diabetesCSV[[col]][is.na(diabetesCSV[[col]])] <- median(diabetesCSV[[col]], na.rm = TRUE)
+}
 set.seed(1)
-# 70% Training / 30% Testing
-train_indices = sample(1:nrow(fetalCSV), 0.7 * nrow(fetalCSV))
-
-train_df = fetalCSV[train_indices, ]
-test_df  = fetalCSV[-train_indices, ]
-
-bart_model = bart2(Target ~ baseline.value + accelerations + fetal_movement + 
-                     light_decelerations + uterine_contractions + abnormal_short_term_variability, 
-                   data = train_df, keepTrees = TRUE, verbose = FALSE)
+train_indices = sample(1:nrow(diabetesCSV), 0.7 * nrow(diabetesCSV))
+train_df = diabetesCSV[train_indices, ]
+test_df  = diabetesCSV[-train_indices, ]
+bart_model = bart2(Outcome ~ Age + BMI + BloodPressure + Insulin + 
+                   DiabetesPedigreeFunction + Glucose + SkinThickness, data = train_df, 
+                   keepTrees = TRUE, verbose = FALSE,  
+                   offset = qnorm(sum(train_df$Outcome) / nrow(train_df)))
 ```
 
 ---
@@ -984,23 +983,23 @@ bart_model = bart2(Target ~ baseline.value + accelerations + fetal_movement +
 **Now that the model has been run, predictions can be made and the accuracy can be found:**
 
 ```{r}
-
 bart_raw_preds  = predict(bart_model, newdata = test_df)
 bart_prob_preds = colMeans(bart_raw_preds)
 
 # Using the standard 0.5 threshold 
 bart_preds = ifelse(bart_prob_preds > 0.5, 1, 0)
-
 bart_errors <- data.frame(
-  Method = rep(c("Normal Fetuses", "High Risk Fetuses"), each = 2),
+  Method = rep(c("Non-Diabetes Patient", "Diabetes Patient"), each = 2),
   ErrorType = rep(c("Correctly Labeled", "Incorrectly Labeled"), 1),
   Count = c(
-    sum(bart_preds == 0 & test_df$Target == 0), sum(bart_preds == 1 & test_df$Target == 0),
-    sum(bart_preds == 1 & test_df$Target == 1), sum(bart_preds == 0 & test_df$Target == 1)
+    sum(bart_preds == 0 & test_df$Outcome == 0), sum(bart_preds == 1 & test_df$Outcome == 0),
+    sum(bart_preds == 1 & test_df$Outcome == 1), sum(bart_preds == 0 & test_df$Outcome == 1)
   )
 )
+```
 
-bart_errors
+```{r, echo=FALSE}
+knitr::kable(bart_errors, format = "html", caption = "BART Model Results")
 ```
 
 ---
@@ -1023,19 +1022,19 @@ ggplot(bart_errors, aes(x = Method, y = Count, fill = ErrorType)) +
 In addition to visualizing the raw number of correct and incorrect classifications, this can be expanded on to get the percentage accuracy.
 
 ```{r}
-totalAccuracy = (sum(bart_preds == 0 & test_df$Target == 0) + 
-                   sum(bart_preds == 1 & test_df$Target == 1)) / length(test_df$Target)
+totalAccuracy = (sum(bart_preds == 0 & test_df$Outcome == 0) + 
+                   sum(bart_preds == 1 & test_df$Outcome == 1)) / length(test_df$Outcome)
 cat("Overall Model Accuracy:", totalAccuracy)
 ```
 
 ```{r}
-normalAccuracy = sum(bart_preds == 0 & test_df$Target == 0) / length(which(test_df$Target == 0))
-cat("Normal Fetus Accuracy:", normalAccuracy)
+normalAccuracy = sum(bart_preds == 0 & test_df$Outcome == 0) / length(which(test_df$Outcome == 0))
+cat("Non-Diabetes Patient Accuracy:", normalAccuracy)
 ```
 
 ```{r}
-hrAccuracy = sum(bart_preds == 1 & test_df$Target == 1) / length(which(test_df$Target == 1))
-cat("High Risk Fetus Accuracy:", hrAccuracy)
+hrAccuracy = sum(bart_preds == 1 & test_df$Outcome == 1) / length(which(test_df$Outcome == 1))
+cat("Diabetes Patient Accuracy:", hrAccuracy)
 ```
 
 ---
@@ -1053,22 +1052,8 @@ Random forest is a strong baseline because it:
 ```{r}
 library(randomForest)
 
-fetalCSV <- read.csv("fetal_health.csv")
-fetalCSV <- na.omit(fetalCSV)
-
-# Changes Score to 2-Dimensional with 0= Normal and 1 = Needs Care (Suspect/Pathological)
-fetalCSV$Target <- ifelse(fetalCSV$fetal_health > 1, 1, 0)
-
-set.seed(1)
-# 70% Training / 30% Testing
-train_indices = sample(1:nrow(fetalCSV), 0.7 * nrow(fetalCSV))
-
-train_df = fetalCSV[train_indices, ]
-test_df  = fetalCSV[-train_indices, ]
-
 rf_model = randomForest(
-  as.factor(Target) ~ baseline.value + accelerations + fetal_movement + 
-    light_decelerations + uterine_contractions + abnormal_short_term_variability,
+  as.factor(Outcome) ~ Age + BMI + BloodPressure + Insulin + DiabetesPedigreeFunction + Glucose + SkinThickness,
   data = train_df,
   ntree = 500
 )
@@ -1083,23 +1068,26 @@ rf_prob_preds = predict(rf_model, newdata = test_df, type = "prob")[,2]
 
 # Using the standard 0.5 threshold 
 rf_preds = ifelse(rf_prob_preds > 0.5, 1, 0)
-
 rf_errors <- data.frame(
-  Method = rep(c("Normal Fetuses", "High Risk Fetuses"), each = 2),
+  Method = rep(c("Non-Diabetes Patient", "Diabetes Patient"), each = 2),
   ErrorType = rep(c("Correctly Labeled", "Incorrectly Labeled"), 1),
   Count = c(
-    sum(rf_preds == 0 & test_df$Target == 0), sum(rf_preds == 1 & test_df$Target == 0),
-    sum(rf_preds == 1 & test_df$Target == 1), sum(rf_preds == 0 & test_df$Target == 1)
+    sum(rf_preds == 0 & test_df$Outcome == 0), sum(rf_preds == 1 & test_df$Outcome == 0),
+    sum(rf_preds == 1 & test_df$Outcome == 1), sum(rf_preds == 0 & test_df$Outcome == 1)
   )
 )
-rf_errors
+```
+
+
+```{r, echo=FALSE}
+knitr::kable(rf_errors, format = "html",caption = "Random Forest Model Results")
 ```
 
 ---
 
 ## Visualizing Random Forest Accuracy
 
-```{r}
+```{r, echo=FALSE}
 ggplot(rf_errors, aes(x = Method, y = Count, fill = ErrorType)) +
   geom_bar(stat = "identity", position = "dodge", color = "black") + 
   scale_fill_manual(values = c("Correctly Labeled" = "navy", "Incorrectly Labeled" = "darkred")) +
@@ -1113,20 +1101,20 @@ ggplot(rf_errors, aes(x = Method, y = Count, fill = ErrorType)) +
 ## Other Metrics
 
 ```{r}
-rf_totalAccuracy = (sum(rf_preds == 0 & test_df$Target == 0) + 
-                      sum(rf_preds == 1 & test_df$Target == 1)) / length(test_df$Target)
+rf_totalAccuracy = (sum(rf_preds == 0 & test_df$Outcome == 0) + 
+                      sum(rf_preds == 1 & test_df$Outcome == 1)) / length(test_df$Outcome)
 cat("Overall Model Accuracy:", rf_totalAccuracy)
 ```
 
 ```{r}
-rf_normalAccuracy = sum(rf_preds == 0 & test_df$Target == 0) / length(which(test_df$Target == 0))
-cat("Normal Fetus Accuracy:", rf_normalAccuracy)
+rf_normalAccuracy = sum(rf_preds == 0 & test_df$Outcome == 0) / length(which(test_df$Outcome == 0))
+cat("Non-Diabetes Patient Accuracy:", rf_normalAccuracy)
 
 ```
 
 ```{r}
-rf_hrAccuracy = sum(rf_preds == 1 & test_df$Target == 1) / length(which(test_df$Target == 1))
-cat("High Risk Fetus Accuracy:", rf_hrAccuracy)
+rf_hrAccuracy = sum(rf_preds == 1 & test_df$Outcome == 1) / length(which(test_df$Outcome == 1))
+cat("Diabetes Patient Accuracy:", rf_hrAccuracy)
 
 ```
 
@@ -1137,12 +1125,14 @@ cat("High Risk Fetus Accuracy:", rf_hrAccuracy)
 ```{r}
 comparison <- data.frame(
   Model = c("BART", "Random Forest"),
-  Overall_Accuracy = c(totalAccuracy, rf_totalAccuracy),
-  Normal_Accuracy = c(normalAccuracy, rf_normalAccuracy),
-  HighRisk_Accuracy = c(hrAccuracy, rf_hrAccuracy)
+  Overall = c(totalAccuracy, rf_totalAccuracy),
+  Non.Diabetic = c(normalAccuracy, rf_normalAccuracy),
+  Diabetic = c(hrAccuracy, rf_hrAccuracy)
 )
+```
 
-comparison
+```{r, echo=FALSE}
+knitr::kable(comparison, format = "html",caption = "Accuracy Comparison: BART v. Random Forest")
 ```
 
 Random Forest is the better model for this dataset, suggesting the underlying relationships are not complex. Although BART is designed to capture complex linear structure, the higher performance of Random Forest suggests the data is relatively stable and does not require as much model flexibility.
