@@ -41,6 +41,24 @@ library(ggplot2)
 theme_set(theme_bw())
 ```
 
+
+
+## Central Problem
+
+Suppose we want to make inference for some continuous $Y$ that depends on the unknown function
+
+$$
+Y=f(\mathbf{x})+\epsilon,\quad \epsilon\sim N(0,\sigma^2)
+$$
+where $\mathbf{x}=(x_1,x_2,...,x_p)$. Suppose we also want to account for possible interaction and non-linear effects, and want to easily estimate the uncertainty associated with predictions.
+
+Traditional Regression:
+- Search for a polynomial that fits to the data without overfitting
+- Possibly need to do other techniques, and do related cross-validation
+- Is there a better way?
+
+---
+
 ## Sum Of Trees Model
 
 We can estimate our unknown function $f(\mathbf{x})$ as a sum of the outputs of $m$ regression trees:
@@ -110,7 +128,7 @@ f_{P|H}(p\mid h)&\propto p^h (1-p)^{n-h}
 $$
 Note that this is the beta distribution $H\sim \text{Beta}(h+1, n-h+1)$.
 
-(Example adapted from the slides of Associate Professor Hui Wang at Brown University)
+##### (Example adapted from the slides of Associate Professor Hui Wang at Brown University)
 ---
 
 ## Concrete Prior and Posterior Example, Continued
@@ -565,18 +583,19 @@ dbarts
 library(dbarts)
 ```
 
-There are two functions to fit a BART model
+There are two functions to fit a BART model in dbarts
 ```{r, eval = F}
 bart <- bart(y ~ x, data = data)
 bart2 <- bart2(y ~ x, data = data)
 ```
-Use **bart2()**
+Use **bart2()**!
 > bart() was the initial implementation while bart2 has more in depth defaults included
 > bart2() supports standard (y ~ x) syntax while bart() requires matrix inputs. Additionally, bart2() implements parallelization to four chains whereas bart() does not implement parallelization
 
 What to know about dbarts:
 - keepTrees is defaulted to false. When you want to make predictions on data you don't have, switch it to true. 
 - dbarts has a predict() function similar to other libraries that can be used to calculate probabilities 
+- https://cran.r-project.org/web/packages/dbarts/dbarts.pdf for further reading
 
 ---
 
@@ -618,15 +637,6 @@ glm_fit <- glm(isVersicolor ~ Sepal.Length + Sepal.Width + Petal.Length + Petal.
                data = iris_class, family = binomial)
 ```
 
----
-## Bart Visualizations
-```{r, echo = F}
-par(mfrow = c(1, 2))
-plot(fit_class, main = "Full Model")
-plot(reduced_fit, main = "Reduced Model")
-```
-
-### add analysis of the difference here
 
 ---
 ### Calculate Prediction Accuracies
@@ -1047,6 +1057,8 @@ In this specific dataset, the factors being explored are taken from a sample of 
 
 Along with the provided factors, it is indicated whether a given patient has diabetes or not.  With this information, it can be explored how certain medical metrics such as BMI, Insulin/Glucose Levels, and Genetic Risk, among others, play a role in developing diabetes.
 
+Smith, J.W., Everhart, J.E., Dickson, W.C., Knowler, W.C., & Johannes, R.S. (1988). Using the ADAP learning algorithm to forecast the onset of diabetes mellitus. In Proceedings of the Symposium on Computer Applications and Medical Care (pp. 261--265). IEEE Computer Society Press.
+
 The data can be viewed here: https://drive.google.com/file/d/1r6eMGjYrZQn6I15Msn23VjukVO0Rh-C7/view?usp=sharing
 
 ---
@@ -1265,35 +1277,338 @@ Why does this matter?  In Health, getting an accurate diagnosis (True Positive) 
 So in the case of making sure the right patients get treatment, BART becomes the more successful model by almost **20%**.
 
 ---
+exclude: true
+## Typography
 
-## References
+Text can be **bold**, _italic_, ~~strikethrough~~, or `inline code`.
 
-Chipman, Hugh A., et al. “Bart: Bayesian additive regression trees.” The Annals of Applied Statistics, vol. 4, no. 1, 1 Mar. 2010, https://doi.org/10.1214/09-aoas285. 
+[Link to another slide](#colors).
 
-Dorie V, Chipman H, McCulloch R (2026). _dbarts: Discrete Bayesian Additive Regression Trees
-Sampler_. doi:10.32614/CRAN.package.dbarts <https://doi.org/10.32614/CRAN.package.dbarts>, R package
-version 0.9-33, <https://CRAN.R-project.org/package=dbarts>. 
+---
+exclude: true
+### Lorem Ipsum
 
-Fan, Zhou. “Lecture 20 — Bayesian Analysis.” STATS 200: Introduction to Statistical Inference, Autumn 2016. https://web.stanford.edu/class/stats200/Lecture20.pdf
+Dolor imperdiet nostra sapien scelerisque praesent curae metus facilisis dignissim tortor. 
+Lacinia neque mollis nascetur neque urna velit bibendum. 
+Himenaeos suspendisse leo varius mus risus sagittis aliquet venenatis duis nec.
 
-Hill, Jennifer, et al. “Bayesian additive regression trees: A review and look forward.” Annual Review of Statistics and Its Application, vol. 7, no. 1, 9 Mar. 2020, pp. 251–278, https://doi.org/10.1146/annurev-statistics-031219-041110. 
+- Dolor cubilia nostra nunc sodales
 
-Lopes, Hedibert F., and Paulo Marques. “BART: Bayesian Additive Regression Trees.” Insper Institute of Education and Research São Paulo, Brazil, https://hedibert.org/wp-content/uploads/2018/06/BART.pdf
+- Consectetur aliquet mauris blandit
 
-Smith, J.W., Everhart, J.E., Dickson, W.C., Knowler, W.C., & Johannes, R.S. (1988). Using the ADAP learning algorithm to forecast the onset of diabetes mellitus. In Proceedings of the Symposium on Computer Applications and Medical Care (pp. 261--265). IEEE Computer Society Press.
+- Ipsum dis nec porttitor urna sed
+
+---
+exclude: true
+name: colors
+
+## Colors
+
+.left-column[
+Text color
+
+[Link Color](#3)
+
+**Bold Color**
+
+_Italic Color_
+
+`Inline Code`
+]
+
+.right-column[
+Lorem ipsum dolor sit amet, [consectetur adipiscing elit (link)](#3), 
+sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. 
+Erat nam at lectus urna.
+Pellentesque elit ullamcorper **dignissim cras tincidunt (bold)** lobortis feugiat. 
+_Eros donec ac odio tempor_ orci dapibus ultrices. 
+Id porta nibh venenatis cras sed felis eget velit aliquet.
+Aliquam id diam maecenas ultricies mi.
+Enim sit amet 
+`code_color("inline")`
+venenatis urna cursus eget nunc scelerisque viverra.
+]
+
+---
+exclude: true
+# Big Topic or Inverse Slides `#`
+
+## Slide Headings `##`
+
+### Sub-slide Headings `###`
+
+#### Bold Call-Out `####`
+
+This is a normal paragraph text. Only use header levels 1-4.
+
+##### Possible, but not recommended `#####`
+
+###### Definitely don't use h6 `######`
+
+---
+exclude: true
+# Left-Column Headings
+
+.left-column[
+## First
+
+## Second
+
+## Third
+]
+
+.right-column[
+Dolor quis aptent mus a dictum ultricies egestas.
+
+Amet egestas neque tempor fermentum proin massa!
+
+Dolor elementum fermentum pharetra lectus arcu pulvinar.
+]
+
+---
+exclude: true
+class: inverse center middle
+
+# Topic Changing Interstitial
+
+--
+exclude: true
+```
+class: inverse center middle
+```
+
+---
+exclude: true
+layout: true
+
+## Blocks
+
+---
+exclude: true
+### Blockquote
+
+> This is a blockquote following a header.
+>
+> When something is important enough, you do it even if the odds are not in your favor.
+
+---
+exclude: true
+### Code Blocks
+
+#### R Code
+
+```{r eval=FALSE}
+ggplot(gapminder) +
+  aes(x = gdpPercap, y = lifeExp, size = pop, color = country) +
+  geom_point() +
+  facet_wrap(~year)
+```
+
+#### JavaScript
+
+```js
+var fun = function lang(l) {
+  dateformat.i18n = require('./lang/' + l)
+  return true;
+}
+```
+
+---
+exclude: true
+### More R Code
+
+```{r eval=FALSE}
+dplyr::starwars %>% dplyr::slice_sample(n = 4)
+```
+
+---
+exclude: true
+```{r message=TRUE, eval=requireNamespace("cli", quietly = TRUE)}
+cli::cli_alert_success("It worked!")
+```
+
+--
+exclude: true
+```{r message=TRUE}
+message("Just a friendly message")
+```
+
+--
+exclude: true
+```{r warning=TRUE}
+warning("This could be bad...")
+```
+
+--
+exclude: true
+```{r error=TRUE}
+stop("I hope you're sitting down for this")
+```
+
+
+---
+exclude: true
+layout: true
+
+## Tables
 
 ---
 
-## More References
+exclude: `r if (requireNamespace("tibble", quietly=TRUE)) "false" else "true"`
+exclude: true
+```{r eval=requireNamespace("tibble", quietly=TRUE)}
+tibble::as_tibble(mtcars)
+```
 
-Sparapani R, Spanbauer C, McCulloch R (2021). “Nonparametric Machine Learning and Efficient
-Computation with Bayesian Additive Regression Trees: The BART R Package.” _Journal of Statistical
-Software_, *97*(1), 1-66. doi:10.18637/jss.v097.i01 <https://doi.org/10.18637/jss.v097.i01>.
+---
+exclude: true
+```{r}
+knitr::kable(head(mtcars), format = 'html')
+```
 
-Tan YV, Roy J. Bayesian additive regression trees and the General BART model.
-Statistics in Medicine. 2019;38:5048–5069. https://doi.org/10.1002/sim.8347
+---
+exclude: true
+```{r}
+DT::datatable(head(mtcars), fillContainer = FALSE, options = list(pageLength = 4))
+```
 
-Wang, Hui. “Chapter 5. Bayesian Statistics.” AM 166: Statistical Inference (II). https://www.dam.brown.edu/people/huiwang/classes/am166/Ch5.pdf
+---
+exclude: true
+layout: true
+
+## Lists
+
+---
+exclude: true
+.pull-left[
+#### Here is an unordered list:
+
+*   Item foo
+*   Item bar
+*   Item baz
+*   Item zip
+]
+
+.pull-right[
+
+#### And an ordered list:
+
+1.  Item one
+1.  Item two
+1.  Item three
+1.  Item four
+]
+
+---
+exclude: true
+### And a nested list:
+
+- level 1 item
+  - level 2 item
+  - level 2 item
+    - level 3 item
+    - level 3 item
+- level 1 item
+  - level 2 item
+  - level 2 item
+  - level 2 item
+- level 1 item
+  - level 2 item
+  - level 2 item
+- level 1 item
+
+---
+exclude: true
+### Nesting an ol in ul in an ol
+
+- level 1 item (ul)
+  1. level 2 item (ol)
+  1. level 2 item (ol)
+    - level 3 item (ul)
+    - level 3 item (ul)
+- level 1 item (ul)
+  1. level 2 item (ol)
+  1. level 2 item (ol)
+    - level 3 item (ul)
+    - level 3 item (ul)
+  1. level 4 item (ol)
+  1. level 4 item (ol)
+    - level 3 item (ul)
+    - level 3 item (ul)
+- level 1 item (ul)
+
+---
+exclude: true
+layout: true
+
+## Plots
+
+---
+exclude: true
+```{r plot-example, eval=requireNamespace("ggplot2", quietly=TRUE)}
+library(ggplot2)
+(g <- ggplot(mpg) + aes(hwy, cty, color = class) + geom_point())
+```
+
+---
+exclude: true
+```{r plot-example-themed, eval=requireNamespace("showtext", quietly=TRUE) && requireNamespace("ggplot2", quietly=TRUE)}
+g + xaringanthemer::theme_xaringan(text_font_size = 16, title_font_size = 18) +
+  ggtitle("A Plot About Cars")
+```
+
+.footnote[Requires `{showtext}`]
+
+---
+exclude: true
+layout: false
+
+## Square image
+
+<center><img src="https://octodex.github.com/images/labtocat.png" alt="GithHub Octocat" height="400px" /></center>
+
+.footnote[GitHub Octocat]
+
+---
+exclude: true
+### Wide image
+
+![A wide image with a diagram of branching in git.](https://docs.github.com/assets/images/help/repository/branching.png)
+
+.footnote[Wide images scale to 100% slide width]
+
+---
+exclude: true
+## Two images
+
+.pull-left[
+![A GitHub Octocat, style "mother hubber"](https://octodex.github.com/images/motherhubbertocat.png)
+]
+
+.pull-right[
+![A GitHub Octocat, style "dinotcat"](https://octodex.github.com/images/dinotocat.png)
+]
+
+---
+exclude: true
+### Definition lists can be used with HTML syntax.
+
+<dl>
+<dt>Name</dt>
+<dd>Godzilla</dd>
+<dt>Born</dt>
+<dd>1952</dd>
+<dt>Birthplace</dt>
+<dd>Japan</dd>
+<dt>Color</dt>
+<dd>Green</dd>
+</dl>
+
+---
+exclude: true
+class: center, middle
+
+# Thanks!
 
 Slides created via the R packages:
 
