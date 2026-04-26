@@ -1,100 +1,153 @@
 ---
-title: "Untitled"
-author: "Samika Reddy"
-date: "2026-04-19"
-output: html_document
+title: "Bayesian Additive Regression Trees (BART)"
+author:
+  - "Jake Fortuna"
+  - "Tyler Johnson"
+  - "Ryan Pini"
+  - "Ashley Powell"
+  - "Samika Reddy"
+  - "Kathleen Reece"
+date: '`r Sys.Date()`'
+output:
+  xaringan::moon_reader:
+    self_contained: true
+    css: xaringan-themer.css
+    nature:
+      slideNumberFormat: "%current%"
+      highlightStyle: github
+      highlightLines: true
+      ratio: "16:9"
+      countIncrementalSlides: true
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+options(htmltools.dir.version = FALSE)
+
+knitr::opts_chunk$set(
+  fig.width = 8,
+  fig.height = 4.5,
+  fig.retina = 3,
+  out.width = "100%",
+  cache = FALSE,
+  echo = TRUE,
+  comment = NA,
+  message = FALSE,
+  warning = FALSE
+)
+
+
 ```
-
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-
-
-
-
-
-
-
 
 ---
 
-## Baby Example: BART vs Boosting (mtcars)
+## Baby Example: BART vs LOESS Regression
 
-We compare two tree-based methods:
-- **Boosting (GBM)**
+We compare two regression methods:
+
+- **LOESS**
 - **BART (Bayesian Additive Regression Trees)**
 
 Goal:
-- Predict mpg and compare training vs testing error
+
+- Predict motorcycle acceleration from time
+- Compare training and testing error
+- Connect BART to a method already used in class
+
+---
 
 ## Step 1: Train/Test Split
 
-```{r  echo=TRUE, results='hide'}
-library(BART)
-library(gbm)
+```{r echo=TRUE, results='hide'}
+# Load the packages we need
+library(MASS)
+install.packages("dbarts")
+library(dbarts)
 
+# Set a seed so results are reproducible
 set.seed(123)
 
-data(mtcars)
+# Load the mcycle dataset
+data(mcycle)
 
-n <- nrow(mtcars)
+# Rename variables for clarity
+x <- mcycle$times
+y <- mcycle$accel
+
+# Count the total number of observations
+n <- length(y)
+
+# Randomly choose about 70% of the observations for training
 train_idx <- sample(1:n, size = floor(0.7 * n))
 
-train <- mtcars[train_idx, ]
-test  <- mtcars[-train_idx, ]
+# Create training and testing sets
+x_train <- x[train_idx]
+y_train <- y[train_idx]
 
-x_train <- as.matrix(train[, -1])
-y_train <- train$mpg
+x_test <- x[-train_idx]
+y_test <- y[-train_idx]
 
-x_test <- as.matrix(test[, -1])
-y_test <- test$mpg
+# BART needs predictor variables to be matrices
+x_train_bart <- as.matrix(x_train)
+x_test_bart  <- as.matrix(x_test)
 ```
+
+---
+Step 2: Fit LOESS Models
+
+```{r}
+# Define the spans we want to compare
+spans <- c(0.25, 0.35, 0.50, 0.65, 0.75)
+
+# Create vectors to store LOESS training and testing MSE
+loess_train_mse <- numeric(length(spans))
+loess_test_mse  <- numeric(length(spans))
+
+# Loop through each span value
+for (i in 1:length(spans)) {
+  
+  # Fit LOESS using the training data
+  loess_fit <- loess(
+    y_train ~ x_train,
+    span = spans[i],
+    degree = 1
+  )
+  
+  # Predict on the training data
+  loess_train_pred <- predict(
+    loess_fit,
+    newdata = data.frame(x_train = x_train)
+  )
+  
+  # Predict on the testing data
+  loess_test_pred <- predict(
+    loess_fit,
+    newdata = data.frame(x_train = x_test)
+  )
+  
+  # Compute training and testing MSE
+  loess_train_mse[i] <- mean((y_train - loess_train_pred)^2, na.rm = TRUE)
+  loess_test_mse[i]  <- mean((y_test - loess_test_pred)^2, na.rm = TRUE)
+}
+```
+
+
 ---
 
-## Step 2: Boosting and BART Model
-```{r  echo=TRUE, results='hide'}
-n_trees <- 200
-
-boost_model <- gbm(
-  mpg ~ .,
-  data = train,
-  distribution = "gaussian",
-  n.trees = n_trees,
-  interaction.depth = 2,
-  shrinkage = 0.05,
-  bag.fraction = 1.0,
-  n.minobsinnode = 2,
-  verbose = FALSE
-)
-
-boost_train_err <- numeric(n_trees)
-boost_test_err  <- numeric(n_trees)
-
-for (i in 1:n_trees) {
-  pred_train <- predict(boost_model, train, n.trees = i)
-  pred_test  <- predict(boost_model, test,  n.trees = i)
-
-  boost_train_err[i] <- mean((y_train - pred_train)^2)
-  boost_test_err[i]  <- mean((y_test - pred_test)^2)
-}
+Step 3: Fit BART Model
+```{r}
+# Fit the BART model
 bart_model <- wbart(
-  x.train = x_train,
+  x.train = x_train_bart,
   y.train = y_train,
-  x.test  = x_test,
+  x.test  = x_test_bart,
   ndpost  = 200
 )
 
+# Extract posterior prediction matrices
 bart_train_mat <- bart_model$yhat.train
 bart_test_mat  <- bart_model$yhat.test
 
-# Ensure correct orientation
+# Make sure rows are posterior draws and columns are observations
 if (ncol(bart_train_mat) == length(y_train)) {
   bart_train_draws <- bart_train_mat
 } else {
@@ -107,47 +160,113 @@ if (ncol(bart_test_mat) == length(y_test)) {
   bart_test_draws <- t(bart_test_mat)
 }
 
+# Count the number of posterior draws
 n_draws <- nrow(bart_train_draws)
-bart_train_err <- numeric(n_draws)
-bart_test_err  <- numeric(n_draws)
 
+# Create vectors to store BART training and testing MSE
+bart_train_mse <- numeric(n_draws)
+bart_test_mse  <- numeric(n_draws)
+
+# Compute MSE for each posterior draw
 for (i in 1:n_draws) {
-  bart_train_err[i] <- mean((y_train - bart_train_draws[i, ])^2)
-  bart_test_err[i]  <- mean((y_test - bart_test_draws[i, ])^2)
+  bart_train_mse[i] <- mean((y_train - bart_train_draws[i, ])^2)
+  bart_test_mse[i]  <- mean((y_test - bart_test_draws[i, ])^2)
 }
-# Smooth BART errors
-bart_train_err_smooth <- cumsum(bart_train_err) / seq_along(bart_train_err)
-bart_test_err_smooth  <- cumsum(bart_test_err) / seq_along(bart_test_err)
+
+# Smooth the BART errors using cumulative averages
+bart_train_mse_smooth <- cumsum(bart_train_mse) / seq_along(bart_train_mse)
+bart_test_mse_smooth  <- cumsum(bart_test_mse) / seq_along(bart_test_mse)
 ```
 ---
-
-## Step 3: Error Comparison
-```{r, echo=FALSE}
-
-plot(boost_train_err, type = "l",
-     col = "blue", lwd = 2,
-     ylim = range(c(boost_train_err, boost_test_err,
-                    bart_train_err_smooth, bart_test_err_smooth)),
-     xlab = "Iterations / Draws",
+Step 4: LOESS Error Comparison
+```{r}
+plot(spans, loess_train_mse,
+     type = "b",
+     pch = 19,
+     lwd = 2,
+     ylim = range(c(loess_train_mse, loess_test_mse), na.rm = TRUE),
+     xlab = "LOESS Span",
      ylab = "Mean Squared Error",
-     main = "BART vs Boosting: Train and Test Error")
+     main = "LOESS Train and Test Error")
 
-lines(boost_test_err, col = "blue", lty = 2, lwd = 2)
-lines(bart_train_err_smooth, col = "orange", lwd = 2)
-lines(bart_test_err_smooth, col = "orange", lty = 2, lwd = 2)
+lines(spans, loess_test_mse,
+      type = "b",
+      pch = 19,
+      lty = 2,
+      lwd = 2)
 
 legend("topright",
-       legend = c("Boosting Train", "Boosting Test",
-                  "BART Train", "BART Test"),
-       col = c("blue", "blue", "orange", "orange"),
-       lty = c(1, 2, 1, 2),
+       legend = c("Train MSE", "Test MSE"),
+       lty = c(1, 2),
+       pch = c(19, 19),
        lwd = 2)
-       
-```       
-In boosting, training error decreases rapidly toward zero, while the test error stops improving which indicates overfitting. In comparsion for BART training and test error stay closer together, and errors stabilize after early iterations, which indicates better generalization.
+```
+LOESS depends strongly on the span value. Smaller spans allow the curve to follow the training data more closely, which can reduce training error but may increase overfitting. Larger spans produce smoother curves, but if the span is too large, the model may oversmooth and miss important patterns in the data.
 
-BART is less aggressive than boosting, so:
-It does not drive training error to zero
-It maintains a competitive test error
-It generalizes better to new data
+---
 
+Step 5: BART Error Comparison
+
+```{r}
+
+plot(bart_train_mse_smooth,
+     type = "l",
+     lwd = 2,
+     ylim = range(c(bart_train_mse_smooth, bart_test_mse_smooth)),
+     xlab = "Posterior Draw",
+     ylab = "Mean Squared Error",
+     main = "BART Train and Test Error")
+
+lines(bart_test_mse_smooth,
+      lty = 2,
+      lwd = 2)
+
+legend("topright",
+       legend = c("Train MSE", "Test MSE"),
+       lty = c(1, 2),
+       lwd = 2)
+```
+BART produces predictions by averaging over many regression trees. Instead of choosing one final tree, BART uses many posterior draws. The training and testing errors stabilize as more posterior draws are averaged. This shows how BART uses Bayesian regularization to avoid fitting the training data too aggressively.
+
+---
+Step 6: Final Comparison
+```{r}
+# Best LOESS test MSE
+best_loess_index <- which.min(loess_test_mse)
+
+comparison_table <- data.frame(
+  Method = c("LOESS", "BART"),
+  Tuning_or_Draw = c(
+    paste("Best span =", spans[best_loess_index]),
+    paste("Posterior draws =", n_draws)
+  ),
+  Train_MSE = c(
+    loess_train_mse[best_loess_index],
+    mean(bart_train_mse)
+  ),
+  Test_MSE = c(
+    loess_test_mse[best_loess_index],
+    mean(bart_test_mse)
+  )
+)
+
+comparison_table
+
+```
+
+
+---
+The LOESS model requires us to choose a span value, and the final performance depends on that choice. This connects directly to the class discussion of smoothing and the bias-variance tradeoff. A smaller span can have lower bias but higher variance, while a larger span can have higher bias but lower variance.
+
+BART also uses trees, but unlike a single tree, it combines many trees through a Bayesian framework. This regularization helps BART avoid overfitting while still capturing nonlinear patterns in the motorcycle acceleration data.
+
+Overall, this baby example shows that BART can be used for regression problems like the mcycle dataset, and it provides a useful comparison to LOESS, which was already discussed in class.
+
+Main Takeaways
+LOESS is useful for smooth nonlinear regression.
+LOESS performance depends on the span.
+Small spans can overfit.
+Large spans can oversmooth.
+BART uses many trees and Bayesian averaging.
+BART can capture nonlinear patterns without manually choosing a smoothing span.
+This example connects BART to a regression method already covered in class.

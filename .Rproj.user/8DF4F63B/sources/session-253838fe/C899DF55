@@ -3,7 +3,7 @@
     "path": "~/4654/CMDA4654Project2/BART_Presentation.Rmd",
     "project_path": "BART_Presentation.Rmd",
     "type": "r_markdown",
-    "hash": "3451303638",
+    "hash": "3871580226",
     "contents": "",
     "dirty": false,
     "created": 1776710332371.0,
@@ -12,16 +12,16 @@
     "properties": {
         "source_window_id": "",
         "Source": "Source",
-        "cursorPosition": "570,25",
-        "scrollLine": "565",
+        "cursorPosition": "1058,764",
+        "scrollLine": "1057",
         "last_setup_crc32": "253838fe480ca393"
     },
     "folds": "",
-    "lastKnownWriteTime": 1776711172,
+    "lastKnownWriteTime": 1777082412,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1776711172476,
+    "last_content_update": 1777082412512,
     "read_only": false,
     "read_only_alternatives": []
 }
