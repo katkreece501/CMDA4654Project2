@@ -41,7 +41,8 @@ library(ggplot2)
 theme_set(theme_bw())
 ```
 
-<!-- 
+
+
 ## Central Problem
 
 Suppose we want to make inference for some continuous $Y$ that depends on the unknown function
@@ -57,8 +58,6 @@ Traditional Regression:
 - Is there a better way?
 
 ---
-
---->
 
 ## Sum Of Trees Model
 
@@ -129,7 +128,7 @@ f_{P|H}(p\mid h)&\propto p^h (1-p)^{n-h}
 $$
 Note that this is the beta distribution $H\sim \text{Beta}(h+1, n-h+1)$.
 
-(Example adapted from the slides of Associate Professor Hui Wang at Brown University)
+##### (Example adapted from the slides of Associate Professor Hui Wang at Brown University)
 ---
 
 ## Concrete Prior and Posterior Example, Continued
@@ -468,18 +467,19 @@ Jake to add:
 library(dbarts)
 ```
 
-There are two functions to fit a BART model
+There are two functions to fit a BART model in dbarts
 ```{r, eval = F}
 bart <- bart(y ~ x, data = data)
 bart2 <- bart2(y ~ x, data = data)
 ```
-Use **bart2()**
+Use **bart2()**!
 > bart() was the initial implementation while bart2 has more in depth defaults included
 > bart2() supports standard (y ~ x) syntax while bart() requires matrix inputs. Additionally, bart2() implements parallelization to four chains whereas bart() does not implement parallelization
 
 What to know about dbarts:
 - keepTrees is defaulted to false. When you want to make predictions on data you don't have, switch it to true. 
 - dbarts has a predict() function similar to other libraries that can be used to calculate probabilities 
+- https://cran.r-project.org/web/packages/dbarts/dbarts.pdf for further reading
 
 ---
 
@@ -521,15 +521,6 @@ glm_fit <- glm(isVersicolor ~ Sepal.Length + Sepal.Width + Petal.Length + Petal.
                data = iris_class, family = binomial)
 ```
 
----
-## Bart Visualizations
-```{r, echo = F}
-par(mfrow = c(1, 2))
-plot(fit_class, main = "Full Model")
-plot(reduced_fit, main = "Reduced Model")
-```
-
-### add analysis of the difference here
 
 ---
 ### Calculate Prediction Accuracies
