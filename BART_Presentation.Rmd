@@ -41,7 +41,8 @@ library(ggplot2)
 theme_set(theme_bw())
 ```
 
-<!-- 
+
+
 ## Central Problem
 
 Suppose we want to make inference for some continuous $Y$ that depends on the unknown function
@@ -57,8 +58,6 @@ Traditional Regression:
 - Is there a better way?
 
 ---
-
---->
 
 ## Sum Of Trees Model
 
@@ -110,8 +109,10 @@ or $f_{A\mid B}(\alpha\mid\beta)\propto f_{B\mid A}(\beta\mid \alpha)f_A(\alpha)
 
 In words, $\text{Posterior}\propto \text{Likelihood}\times\text{Prior}$.
 
----
+Changing the prior will change the posterior, but for good data, this change is less noticeable
 
+---
+exclude: true
 ## Concrete Prior and Posterior Example
 
 Suppose you wish to investigate the fairness of a coin. Let $P$ be the probability that the coin lands on heads, and $H$ be the number of heads you get when flipping the coin $n$ times. Note that $H$ has a binomial distribution, $H\sim B(n, p)$. Since you know $p$ is between 0 and 1. Thus, a reasonable prior in this scenario the uniform distribution from 0 to 1, $P\sim U(0, 1)$. 
@@ -129,9 +130,9 @@ f_{P|H}(p\mid h)&\propto p^h (1-p)^{n-h}
 $$
 Note that this is the beta distribution $H\sim \text{Beta}(h+1, n-h+1)$.
 
-(Example adapted from the slides of Associate Professor Hui Wang at Brown University)
+##### (Example adapted from the slides of Associate Professor Hui Wang at Brown University)
 ---
-
+exclude: true
 ## Concrete Prior and Posterior Example, Continued
 
 ```{r}
@@ -144,7 +145,7 @@ ggplot(data.frame(x = c(0, 1)), aes(x = x)) +
 ```
 
 ---
-
+exclude: true
 ## Further Comments on Priors and Posteriors
 
 - Changing the prior will change the posterior, but for good data, this change is less noticeable
@@ -183,7 +184,7 @@ The prior on $T_j$ can be specified by 3 parts:
 2. The choice of splitting variable: uniform distribution over all possible predictors
 3. The choice of splitting value: uniform distribution over all values of the chosen predictor in that node
 
-Larger values of $\alpha$ increase the likelihood of a split, and larger values of $\beta$ decrease the number of terminal nodes. For (2), although Chipman et al. proposed the uniform distribution be used, other literature has suggested that this not ideal for variable selection.
+Larger values of $\alpha$ increase the likelihood of a split, and larger values of $\beta$ decrease the number of terminal nodes.
 
 (1) is used to control the number of splits in the tree, with an initial split probability of $\alpha$ at $d = 0$, with larger depths having a lower probability of splitting. (2) and (3) control the different combination of available splits, with larger depths having a lower possible pool of combinations.
 
@@ -291,7 +292,7 @@ The probability that $T_j^*$ is accepted is given by the Metropolis–Hastings r
 
 <div>
 \[
-\min\left\{1, \frac{q(T_j^*,T_j)}{q(T_j,T_j^*)} \frac{P(\mathbf{R}_j\mid \mathbf{x},T_j^*,M_j)}{P(\mathbf{R}_j\mid \mathbf{x},T_j,M_j)} \frac{P(T_j^*)}{P(T_j)} \right\}
+\alpha(T_j, T_j^*)=\min\left\{1, \frac{q(T_j^*,T_j)}{q(T_j,T_j^*)} \frac{P(\mathbf{R}_j\mid \mathbf{x},T_j^*,M_j)}{P(\mathbf{R}_j\mid \mathbf{x},T_j,M_j)} \frac{P(T_j^*)}{P(T_j)} \right\}
 \]
 </div>
 
@@ -301,11 +302,32 @@ If $T_j^*$ is accepted, than the structure of $T_j$ changes to that of $T_j^*$; 
 
 <div>
 \[
-\alpha(T_j, T_j^*)= N\left(\left(\sigma_\mu^2\sum r_{ji}\right)/(n_i\sigma_\mu^2+\sigma^2),\,\sigma^2\sigma_\mu^2 /[n_i\sigma_\mu^2+\sigma^2]\right)
+N\left(\left(\sigma_\mu^2\sum r_{ji}\right)/(n_i\sigma_\mu^2+\sigma^2),\,\sigma^2\sigma_\mu^2 /[n_i\sigma_\mu^2+\sigma^2]\right)
 \]
 </div>
 
 where $r_{ji}$ are the elements in $\mathbf{R}_j$ corresponding to $\mu_{ji}$ and $n_i$ is the size of $r_{ji}$. 
+
+---
+
+## Building the Posterior (that we actually use)
+
+BART is often initialized with $m$ stumps, with $\mu_{j1}=\frac{\bar{Y}}{m}$.
+
+To build the posterior, we run the following algorithm for $B+K$ iterations, of which $B$ are burn-in iterations and are $K$ kept iterations:
+
+1. For $j=1,\dots,m$:
+  1. Compute $\mathbf{R}_j=\mathbf{y}-\sum_{k\ne j}g(\mathbf{x},T_k,M_k)$
+  2. Randomly choose a possible modification $T_j^*$
+  3. Compute $\alpha(T_j, T_j^*)$
+  4. Accept $T_j^*$ with probability $\alpha(T_j, T_j^*)$
+  5. Draw for $M_j$
+2. Draw for $\sigma$
+3. If not a burn-in iteration, store $((T_1,M_1),\dots,(T_m,M_m),\sigma)$
+
+Assuming we've chosen a suitable $K$, the sequence of iterations can be regarded as a sample from the true posterior. 
+
+Burn-in iterations are only used to start the MCMC process, and allow the sampler to reach the true posterior region.
 
 ---
 
@@ -329,25 +351,6 @@ Note:
 
 Example adapted from _Bayesian additive regression trees and the General BART model_, Tan YV, Roy J
 ]
-
----
-
-## Building the Posterior (that we actually use)
-
-To build the posterior, we run the following algorithm for $B+K$ iterations, of which $B$ are burn-in iterations and are $K$ kept iterations:
-
-1. For $j=1,\dots,m$:
-  1. Compute $\mathbf{R}_j=\mathbf{y}-\sum_{k\ne j}g(\mathbf{x},T_k,M_k)$
-  2. Randomly choose a possible modification $T_j^*$
-  3. Compute $\alpha(T_j, T_j^*)$
-  4. Accept $T_j^*$ with probability $\alpha(T_j, T_j^*)$
-  5. Draw for $M_j$
-2. Draw for $\sigma$
-3. If not a burn-in iteration, store $((T_1,M_1),\dots,(T_m,M_m),\sigma)$
-
-Assuming we've chosen a suitable $K$, the sequence of iterations can be regarded as a size-$K$ sample from the true posterior. 
-
-Burn-in iterations are only used to start the MCMC process, and allow the sampler to reach the true posterior region. BART is often initialized with $m$ stumps, with $\mu_{j1}=\frac{\bar{Y}}{m}$.
 
 ---
 
@@ -439,9 +442,8 @@ If any of the below are true...
 - Your data has a clear linear or quadratic fit
 - Your data has a very large number of possible predictors
 - Your data has non-constant variance
-- You want a resulting smooth curve
-- You really care about execution time (i.e., seconds are important to you)
-- You don't want to learn any Bayesian statistics
+- You really care about computational cost
+- You don't want to learn any Bayesian statistics to understand the model
 
 ...BART probably isn't for you.
 ]
@@ -584,18 +586,19 @@ dbarts
 library(dbarts)
 ```
 
-There are two functions to fit a BART model
+There are two functions to fit a BART model in dbarts
 ```{r, eval = F}
 bart <- bart(y ~ x, data = data)
 bart2 <- bart2(y ~ x, data = data)
 ```
-Use **bart2()**
+Use **bart2()**!
 > bart() was the initial implementation while bart2 has more in depth defaults included
 > bart2() supports standard (y ~ x) syntax while bart() requires matrix inputs. Additionally, bart2() implements parallelization to four chains whereas bart() does not implement parallelization
 
 What to know about dbarts:
 - keepTrees is defaulted to false. When you want to make predictions on data you don't have, switch it to true. 
 - dbarts has a predict() function similar to other libraries that can be used to calculate probabilities 
+- https://cran.r-project.org/web/packages/dbarts/dbarts.pdf for further reading
 
 ---
 
@@ -637,15 +640,6 @@ glm_fit <- glm(isVersicolor ~ Sepal.Length + Sepal.Width + Petal.Length + Petal.
                data = iris_class, family = binomial)
 ```
 
----
-## Bart Visualizations
-```{r, echo = F}
-par(mfrow = c(1, 2))
-plot(fit_class, main = "Full Model")
-plot(reduced_fit, main = "Reduced Model")
-```
-
-### add analysis of the difference here
 
 ---
 ### Calculate Prediction Accuracies
@@ -1100,8 +1094,8 @@ diabetesCSV <- read.csv("diabetes.csv")
 diabetesCSV <- na.omit(diabetesCSV)
 # Replaces Zero Values with the Median Value of the Dataset in Applicable Columns
 zero_cols <- c("Glucose", "BloodPressure", "SkinThickness", "Insulin", "BMI")
-diabetesCSV[zero_cols] <- lapply(diabetesCSV[zero_cols], function(x) ifelse(x == 0, NA, x))
 for (col in zero_cols) {
+  diabetesCSV[[col]][diabetesCSV[[col]] == 0] <- NA
   diabetesCSV[[col]][is.na(diabetesCSV[[col]])] <- median(diabetesCSV[[col]], na.rm = TRUE)
 }
 set.seed(1)
@@ -1286,338 +1280,35 @@ Why does this matter?  In Health, getting an accurate diagnosis (True Positive) 
 So in the case of making sure the right patients get treatment, BART becomes the more successful model by almost **20%**.
 
 ---
-exclude: true
-## Typography
 
-Text can be **bold**, _italic_, ~~strikethrough~~, or `inline code`.
+## References
 
-[Link to another slide](#colors).
+Chipman, Hugh A., et al. “Bart: Bayesian additive regression trees.” The Annals of Applied Statistics, vol. 4, no. 1, 1 Mar. 2010, https://doi.org/10.1214/09-aoas285. 
 
----
-exclude: true
-### Lorem Ipsum
+Dorie V, Chipman H, McCulloch R (2026). _dbarts: Discrete Bayesian Additive Regression Trees
+Sampler_. doi:10.32614/CRAN.package.dbarts <https://doi.org/10.32614/CRAN.package.dbarts>, R package
+version 0.9-33, <https://CRAN.R-project.org/package=dbarts>. 
 
-Dolor imperdiet nostra sapien scelerisque praesent curae metus facilisis dignissim tortor. 
-Lacinia neque mollis nascetur neque urna velit bibendum. 
-Himenaeos suspendisse leo varius mus risus sagittis aliquet venenatis duis nec.
+Fan, Zhou. “Lecture 20 — Bayesian Analysis.” STATS 200: Introduction to Statistical Inference, Autumn 2016. https://web.stanford.edu/class/stats200/Lecture20.pdf
 
-- Dolor cubilia nostra nunc sodales
+Hill, Jennifer, et al. “Bayesian additive regression trees: A review and look forward.” Annual Review of Statistics and Its Application, vol. 7, no. 1, 9 Mar. 2020, pp. 251–278, https://doi.org/10.1146/annurev-statistics-031219-041110. 
 
-- Consectetur aliquet mauris blandit
+Lopes, Hedibert F., and Paulo Marques. “BART: Bayesian Additive Regression Trees.” Insper Institute of Education and Research São Paulo, Brazil, https://hedibert.org/wp-content/uploads/2018/06/BART.pdf
 
-- Ipsum dis nec porttitor urna sed
-
----
-exclude: true
-name: colors
-
-## Colors
-
-.left-column[
-Text color
-
-[Link Color](#3)
-
-**Bold Color**
-
-_Italic Color_
-
-`Inline Code`
-]
-
-.right-column[
-Lorem ipsum dolor sit amet, [consectetur adipiscing elit (link)](#3), 
-sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. 
-Erat nam at lectus urna.
-Pellentesque elit ullamcorper **dignissim cras tincidunt (bold)** lobortis feugiat. 
-_Eros donec ac odio tempor_ orci dapibus ultrices. 
-Id porta nibh venenatis cras sed felis eget velit aliquet.
-Aliquam id diam maecenas ultricies mi.
-Enim sit amet 
-`code_color("inline")`
-venenatis urna cursus eget nunc scelerisque viverra.
-]
-
----
-exclude: true
-# Big Topic or Inverse Slides `#`
-
-## Slide Headings `##`
-
-### Sub-slide Headings `###`
-
-#### Bold Call-Out `####`
-
-This is a normal paragraph text. Only use header levels 1-4.
-
-##### Possible, but not recommended `#####`
-
-###### Definitely don't use h6 `######`
-
----
-exclude: true
-# Left-Column Headings
-
-.left-column[
-## First
-
-## Second
-
-## Third
-]
-
-.right-column[
-Dolor quis aptent mus a dictum ultricies egestas.
-
-Amet egestas neque tempor fermentum proin massa!
-
-Dolor elementum fermentum pharetra lectus arcu pulvinar.
-]
-
----
-exclude: true
-class: inverse center middle
-
-# Topic Changing Interstitial
-
---
-exclude: true
-```
-class: inverse center middle
-```
-
----
-exclude: true
-layout: true
-
-## Blocks
-
----
-exclude: true
-### Blockquote
-
-> This is a blockquote following a header.
->
-> When something is important enough, you do it even if the odds are not in your favor.
-
----
-exclude: true
-### Code Blocks
-
-#### R Code
-
-```{r eval=FALSE}
-ggplot(gapminder) +
-  aes(x = gdpPercap, y = lifeExp, size = pop, color = country) +
-  geom_point() +
-  facet_wrap(~year)
-```
-
-#### JavaScript
-
-```js
-var fun = function lang(l) {
-  dateformat.i18n = require('./lang/' + l)
-  return true;
-}
-```
-
----
-exclude: true
-### More R Code
-
-```{r eval=FALSE}
-dplyr::starwars %>% dplyr::slice_sample(n = 4)
-```
-
----
-exclude: true
-```{r message=TRUE, eval=requireNamespace("cli", quietly = TRUE)}
-cli::cli_alert_success("It worked!")
-```
-
---
-exclude: true
-```{r message=TRUE}
-message("Just a friendly message")
-```
-
---
-exclude: true
-```{r warning=TRUE}
-warning("This could be bad...")
-```
-
---
-exclude: true
-```{r error=TRUE}
-stop("I hope you're sitting down for this")
-```
-
-
----
-exclude: true
-layout: true
-
-## Tables
+Smith, J.W., Everhart, J.E., Dickson, W.C., Knowler, W.C., & Johannes, R.S. (1988). Using the ADAP learning algorithm to forecast the onset of diabetes mellitus. In Proceedings of the Symposium on Computer Applications and Medical Care (pp. 261--265). IEEE Computer Society Press.
 
 ---
 
-exclude: `r if (requireNamespace("tibble", quietly=TRUE)) "false" else "true"`
-exclude: true
-```{r eval=requireNamespace("tibble", quietly=TRUE)}
-tibble::as_tibble(mtcars)
-```
+## More References
 
----
-exclude: true
-```{r}
-knitr::kable(head(mtcars), format = 'html')
-```
+Sparapani R, Spanbauer C, McCulloch R (2021). “Nonparametric Machine Learning and Efficient
+Computation with Bayesian Additive Regression Trees: The BART R Package.” _Journal of Statistical
+Software_, *97*(1), 1-66. doi:10.18637/jss.v097.i01 <https://doi.org/10.18637/jss.v097.i01>.
 
----
-exclude: true
-```{r}
-DT::datatable(head(mtcars), fillContainer = FALSE, options = list(pageLength = 4))
-```
+Tan YV, Roy J. Bayesian additive regression trees and the General BART model.
+Statistics in Medicine. 2019;38:5048–5069. https://doi.org/10.1002/sim.8347
 
----
-exclude: true
-layout: true
-
-## Lists
-
----
-exclude: true
-.pull-left[
-#### Here is an unordered list:
-
-*   Item foo
-*   Item bar
-*   Item baz
-*   Item zip
-]
-
-.pull-right[
-
-#### And an ordered list:
-
-1.  Item one
-1.  Item two
-1.  Item three
-1.  Item four
-]
-
----
-exclude: true
-### And a nested list:
-
-- level 1 item
-  - level 2 item
-  - level 2 item
-    - level 3 item
-    - level 3 item
-- level 1 item
-  - level 2 item
-  - level 2 item
-  - level 2 item
-- level 1 item
-  - level 2 item
-  - level 2 item
-- level 1 item
-
----
-exclude: true
-### Nesting an ol in ul in an ol
-
-- level 1 item (ul)
-  1. level 2 item (ol)
-  1. level 2 item (ol)
-    - level 3 item (ul)
-    - level 3 item (ul)
-- level 1 item (ul)
-  1. level 2 item (ol)
-  1. level 2 item (ol)
-    - level 3 item (ul)
-    - level 3 item (ul)
-  1. level 4 item (ol)
-  1. level 4 item (ol)
-    - level 3 item (ul)
-    - level 3 item (ul)
-- level 1 item (ul)
-
----
-exclude: true
-layout: true
-
-## Plots
-
----
-exclude: true
-```{r plot-example, eval=requireNamespace("ggplot2", quietly=TRUE)}
-library(ggplot2)
-(g <- ggplot(mpg) + aes(hwy, cty, color = class) + geom_point())
-```
-
----
-exclude: true
-```{r plot-example-themed, eval=requireNamespace("showtext", quietly=TRUE) && requireNamespace("ggplot2", quietly=TRUE)}
-g + xaringanthemer::theme_xaringan(text_font_size = 16, title_font_size = 18) +
-  ggtitle("A Plot About Cars")
-```
-
-.footnote[Requires `{showtext}`]
-
----
-exclude: true
-layout: false
-
-## Square image
-
-<center><img src="https://octodex.github.com/images/labtocat.png" alt="GithHub Octocat" height="400px" /></center>
-
-.footnote[GitHub Octocat]
-
----
-exclude: true
-### Wide image
-
-![A wide image with a diagram of branching in git.](https://docs.github.com/assets/images/help/repository/branching.png)
-
-.footnote[Wide images scale to 100% slide width]
-
----
-exclude: true
-## Two images
-
-.pull-left[
-![A GitHub Octocat, style "mother hubber"](https://octodex.github.com/images/motherhubbertocat.png)
-]
-
-.pull-right[
-![A GitHub Octocat, style "dinotcat"](https://octodex.github.com/images/dinotocat.png)
-]
-
----
-exclude: true
-### Definition lists can be used with HTML syntax.
-
-<dl>
-<dt>Name</dt>
-<dd>Godzilla</dd>
-<dt>Born</dt>
-<dd>1952</dd>
-<dt>Birthplace</dt>
-<dd>Japan</dd>
-<dt>Color</dt>
-<dd>Green</dd>
-</dl>
-
----
-exclude: true
-class: center, middle
-
-# Thanks!
+Wang, Hui. “Chapter 5. Bayesian Statistics.” AM 166: Statistical Inference (II). https://www.dam.brown.edu/people/huiwang/classes/am166/Ch5.pdf
 
 Slides created via the R packages:
 
