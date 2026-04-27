@@ -170,7 +170,7 @@ bart_test_mse_smooth  <- cumsum(bart_test_mse) / seq_along(bart_test_mse)
 bart_final_train <- mean(bart_train_mse)
 bart_final_test  <- mean(bart_test_mse)
 ```
-BART error is shown across posterior draws, while LOESS is shown as a constant line using its best span. This allows us to compare BART’s convergence to LOESS’s best performance.
+BART error is shown as the average test MSE across posterior draws, while LOESS is shown as a constant line using its best span. This allows us to compare BART’s convergence to LOESS’s best performance.
 
 ```{r, eval=T, echo=F, fig.width=4, fig.height=3.5,  out.width="30%"}
 
@@ -355,3 +355,61 @@ LOESS achieved a **lower test error** than BART when predicting acceleration fro
 
 
 
+LOESS requires manual tuning of the span parameter, which directly controls the bias-variance tradeoff. Smaller spans reduce bias but increase variance, leading to overfitting, while larger spans increase bias. In contrast, BART performs automatic regularization through Bayesian averaging over many trees, resulting in more stable training and testing error without requiring manual tuning.
+---
+
+## Regression: Model Fit Comparison
+
+```{r, eval=TRUE, echo=FALSE, results='asis', fig.width=4, fig.height=3,  out.width="40%"}
+library(ggplot2)
+
+# LOESS predictions on test data
+loess_test_pred_best <- predict(
+  loess_fit_best,
+  newdata = data.frame(x_train = x_test)
+)
+
+# BART mean predictions on test data
+bart_mean_pred <- colMeans(bart_test_draws)
+
+# Data frames for plotting
+loess_plot_df <- data.frame(
+  Time = x_test,
+  Acceleration = y_test,
+  Prediction = loess_test_pred_best
+)
+
+bart_plot_df <- data.frame(
+  Time = x_test,
+  Acceleration = y_test,
+  Prediction = bart_mean_pred
+)
+
+# LOESS plot
+ggplot(loess_plot_df, aes(x = Time, y = Acceleration)) +
+  geom_point(color = "gray") +
+  geom_line(aes(y = Prediction), color = "blue", linewidth = 1) +
+  labs(
+    title = "LOESS Fit (Test Data)",
+    x = "Time",
+    y = "Acceleration"
+  ) +
+  theme_minimal()
+
+# BART plot
+ggplot(bart_plot_df, aes(x = Time, y = Acceleration)) +
+  geom_point(color = "gray") +
+  geom_line(aes(y = Prediction), color = "darkgreen", linewidth = 1) +
+  labs(
+    title = "BART Fit (Test Data)",
+    x = "Time",
+    y = "Acceleration"
+  ) +
+  theme_minimal()
+
+```
+
+**Lastly**:
+
+Looking at the model fit plots, LOESS follows the smooth curve of the mcycle data more closely because it performs local smoothing. BART also captures the general pattern, but its prediction curve is less smooth because it is based on averaging many tree-based models, while still capturing the main trend in the data.
+---
