@@ -109,8 +109,10 @@ or $f_{A\mid B}(\alpha\mid\beta)\propto f_{B\mid A}(\beta\mid \alpha)f_A(\alpha)
 
 In words, $\text{Posterior}\propto \text{Likelihood}\times\text{Prior}$.
 
----
+Changing the prior will change the posterior, but for good data, this change is less noticeable
 
+---
+exclude: true
 ## Concrete Prior and Posterior Example
 
 Suppose you wish to investigate the fairness of a coin. Let $P$ be the probability that the coin lands on heads, and $H$ be the number of heads you get when flipping the coin $n$ times. Note that $H$ has a binomial distribution, $H\sim B(n, p)$. Since you know $p$ is between 0 and 1. Thus, a reasonable prior in this scenario the uniform distribution from 0 to 1, $P\sim U(0, 1)$. 
@@ -130,7 +132,7 @@ Note that this is the beta distribution $H\sim \text{Beta}(h+1, n-h+1)$.
 
 ##### (Example adapted from the slides of Associate Professor Hui Wang at Brown University)
 ---
-
+exclude: true
 ## Concrete Prior and Posterior Example, Continued
 
 ```{r}
@@ -143,7 +145,7 @@ ggplot(data.frame(x = c(0, 1)), aes(x = x)) +
 ```
 
 ---
-
+exclude: true
 ## Further Comments on Priors and Posteriors
 
 - Changing the prior will change the posterior, but for good data, this change is less noticeable
@@ -182,7 +184,7 @@ The prior on $T_j$ can be specified by 3 parts:
 2. The choice of splitting variable: uniform distribution over all possible predictors
 3. The choice of splitting value: uniform distribution over all values of the chosen predictor in that node
 
-Larger values of $\alpha$ increase the likelihood of a split, and larger values of $\beta$ decrease the number of terminal nodes. For (2), although Chipman et al. proposed the uniform distribution be used, other literature has suggested that this not ideal for variable selection.
+Larger values of $\alpha$ increase the likelihood of a split, and larger values of $\beta$ decrease the number of terminal nodes.
 
 (1) is used to control the number of splits in the tree, with an initial split probability of $\alpha$ at $d = 0$, with larger depths having a lower probability of splitting. (2) and (3) control the different combination of available splits, with larger depths having a lower possible pool of combinations.
 
@@ -290,7 +292,7 @@ The probability that $T_j^*$ is accepted is given by the Metropolis–Hastings r
 
 <div>
 \[
-\min\left\{1, \frac{q(T_j^*,T_j)}{q(T_j,T_j^*)} \frac{P(\mathbf{R}_j\mid \mathbf{x},T_j^*,M_j)}{P(\mathbf{R}_j\mid \mathbf{x},T_j,M_j)} \frac{P(T_j^*)}{P(T_j)} \right\}
+\alpha(T_j, T_j^*)=\min\left\{1, \frac{q(T_j^*,T_j)}{q(T_j,T_j^*)} \frac{P(\mathbf{R}_j\mid \mathbf{x},T_j^*,M_j)}{P(\mathbf{R}_j\mid \mathbf{x},T_j,M_j)} \frac{P(T_j^*)}{P(T_j)} \right\}
 \]
 </div>
 
@@ -300,11 +302,32 @@ If $T_j^*$ is accepted, than the structure of $T_j$ changes to that of $T_j^*$; 
 
 <div>
 \[
-\alpha(T_j, T_j^*)= N\left(\left(\sigma_\mu^2\sum r_{ji}\right)/(n_i\sigma_\mu^2+\sigma^2),\,\sigma^2\sigma_\mu^2 /[n_i\sigma_\mu^2+\sigma^2]\right)
+N\left(\left(\sigma_\mu^2\sum r_{ji}\right)/(n_i\sigma_\mu^2+\sigma^2),\,\sigma^2\sigma_\mu^2 /[n_i\sigma_\mu^2+\sigma^2]\right)
 \]
 </div>
 
 where $r_{ji}$ are the elements in $\mathbf{R}_j$ corresponding to $\mu_{ji}$ and $n_i$ is the size of $r_{ji}$. 
+
+---
+
+## Building the Posterior (that we actually use)
+
+BART is often initialized with $m$ stumps, with $\mu_{j1}=\frac{\bar{Y}}{m}$.
+
+To build the posterior, we run the following algorithm for $B+K$ iterations, of which $B$ are burn-in iterations and are $K$ kept iterations:
+
+1. For $j=1,\dots,m$:
+  1. Compute $\mathbf{R}_j=\mathbf{y}-\sum_{k\ne j}g(\mathbf{x},T_k,M_k)$
+  2. Randomly choose a possible modification $T_j^*$
+  3. Compute $\alpha(T_j, T_j^*)$
+  4. Accept $T_j^*$ with probability $\alpha(T_j, T_j^*)$
+  5. Draw for $M_j$
+2. Draw for $\sigma$
+3. If not a burn-in iteration, store $((T_1,M_1),\dots,(T_m,M_m),\sigma)$
+
+Assuming we've chosen a suitable $K$, the sequence of iterations can be regarded as a sample from the true posterior. 
+
+Burn-in iterations are only used to start the MCMC process, and allow the sampler to reach the true posterior region.
 
 ---
 
@@ -328,25 +351,6 @@ Note:
 
 Example adapted from _Bayesian additive regression trees and the General BART model_, Tan YV, Roy J
 ]
-
----
-
-## Building the Posterior (that we actually use)
-
-To build the posterior, we run the following algorithm for $B+K$ iterations, of which $B$ are burn-in iterations and are $K$ kept iterations:
-
-1. For $j=1,\dots,m$:
-  1. Compute $\mathbf{R}_j=\mathbf{y}-\sum_{k\ne j}g(\mathbf{x},T_k,M_k)$
-  2. Randomly choose a possible modification $T_j^*$
-  3. Compute $\alpha(T_j, T_j^*)$
-  4. Accept $T_j^*$ with probability $\alpha(T_j, T_j^*)$
-  5. Draw for $M_j$
-2. Draw for $\sigma$
-3. If not a burn-in iteration, store $((T_1,M_1),\dots,(T_m,M_m),\sigma)$
-
-Assuming we've chosen a suitable $K$, the sequence of iterations can be regarded as a size-$K$ sample from the true posterior. 
-
-Burn-in iterations are only used to start the MCMC process, and allow the sampler to reach the true posterior region. BART is often initialized with $m$ stumps, with $\mu_{j1}=\frac{\bar{Y}}{m}$.
 
 ---
 
@@ -438,9 +442,8 @@ If any of the below are true...
 - Your data has a clear linear or quadratic fit
 - Your data has a very large number of possible predictors
 - Your data has non-constant variance
-- You want a resulting smooth curve
-- You really care about execution time (i.e., seconds are important to you)
-- You don't want to learn any Bayesian statistics
+- You really care about computational cost
+- You don't want to learn any Bayesian statistics to understand the model
 
 ...BART probably isn't for you.
 ]
